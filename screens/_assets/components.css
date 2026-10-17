@@ -1,0 +1,8 @@
+/* components.css — 공용 컴포넌트 어휘. 구현은 이 클래스를 그대로 소비한다(재정의 금지). 화면 고유 CSS는 각 화면의 _screen.css */
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: var(--font-size-base) / 1.5 var(--font-family-base); }
+.content { padding: var(--gutter); }
+.content__inner { max-width: var(--max-w); margin: 0 auto; }
+.h1 { font-size: 20px; font-weight: 700; margin: 0 0 16px; }
+.btn { display: inline-block; padding: 6px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); background: #fff; cursor: pointer; }
+.btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.empty { color: var(--color-muted); text-align: center; padding: 48px 0; }

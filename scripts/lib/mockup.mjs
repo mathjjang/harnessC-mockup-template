@@ -1,0 +1,74 @@
+// mockup.mjs — 목업 저장소 공용 라이브러리 (new-screen · confirm · validate가 공유). 프로젝트 지식 없음.
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve, relative } from 'node:path';
+
+export const STATUSES = ['draft', 'ready', 'confirmed', 'reopened'];
+export const STATE_RE = /^\d{2}-[a-z0-9][a-z0-9-]*\.html$/;           // 01-default.html
+export const POLICY_SECTIONS = ['상태 전이', '액션별 동작', '권한', '빈/오류 조건', '한계값', '동적 동작', '문구'];
+export const rd = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
+export const sha = (buf) => createHash('sha256').update(buf).digest('hex');
+export const posix = (p) => p.split('\\').join('/');
+export const today = () => new Date().toISOString().slice(0, 10);
+const scalar = (t, k) => ((t.match(new RegExp(`^${k}:\\s*([^#\\n]*?)\\s*(#.*)?$`, 'm')) || [])[1] || '').trim().replace(/^["']|["']$/g, '');
+
+export function config(root) {
+  const t = rd(join(root, 'mockup.yaml'));
+  return { project: scalar(t, 'project') || '', viewport: scalar(t, 'viewport') || '1440x900', screensDir: scalar(t, 'screens_dir') || 'screens' };
+}
+
+/** rev.yaml 읽기 — { screen, title, rev, visual_status, confirmed, confirmed_by, files{html: sha}, raw } */
+export function readRev(dir) {
+  const t = rd(join(dir, 'rev.yaml')); if (!t) return null;
+  const files = {}; for (const m of t.matchAll(/^  ([^:\n]+\.html):\s*([0-9a-f]{64})\s*$/gm)) files[m[1]] = m[2];
+  return { screen: scalar(t, 'screen'), title: scalar(t, 'title'), rev: Number(scalar(t, 'rev')) || 0, visual_status: scalar(t, 'visual_status'), confirmed: scalar(t, 'confirmed'), confirmed_by: scalar(t, 'confirmed_by'), reopened: scalar(t, 'reopened'), files, raw: t };
+}
+export function writeRevText({ screen, title, rev, visual_status, confirmed = '', confirmed_by = '', reopened = '', files = {}, note = '' }) {
+  const lines = ['# rev.yaml — 이 화면의 확정 스탬프 (정본). confirm.mjs가 쓴다 · 손 편집 금지. 확정 뒤 수정은 reopen → 고침 → confirm(rev+1)만.',
+    `screen: ${screen}`, `title: "${title.replace(/"/g, '\\"')}"`, `rev: ${rev}`, `visual_status: ${visual_status}`, `confirmed: ${confirmed}`, `confirmed_by: "${confirmed_by}"`, `reopened: ${reopened}`, 'files:'];
+  for (const f of Object.keys(files).sort()) lines.push(`  ${f}: ${files[f]}`);
+  if (note) lines.push('note: |', ...note.split('\n').map((l) => '  ' + l));
+  return lines.join('\n') + '\n';
+}
+export const stateFiles = (dir) => readdirSync(dir).filter((f) => f.endsWith('.html')).sort();
+export const hashStates = (dir) => Object.fromEntries(stateFiles(dir).map((f) => [f, sha(readFileSync(join(dir, f)))]));
+
+/** 모든 화면 폴더 [{ id: "<모듈>/<화면>", path }] — rev.yaml이 있는 폴더 */
+export function listScreens(root) {
+  const base = join(root, config(root).screensDir); const out = [];
+  if (!existsSync(base)) return out;
+  for (const m of readdirSync(base, { withFileTypes: true })) { if (!m.isDirectory() || m.name.startsWith('_')) continue; for (const s of readdirSync(join(base, m.name), { withFileTypes: true })) if (s.isDirectory() && existsSync(join(base, m.name, s.name, 'rev.yaml'))) out.push({ id: `${m.name}/${s.name}`, path: join(base, m.name, s.name) }); }
+  return out;
+}
+
+/** HTML이 참조하는 로컬 자산 경로(stylesheet·script·img·source·CSS url()) — 절대 URL·data:·#은 제외 */
+export function assetRefs(html) {
+  const refs = new Set();
+  for (const m of html.matchAll(/<(?:link|script|img|source|video|audio)\b[^>]*?\b(?:href|src)=["']([^"']+)["']/gi)) refs.add(m[1]);
+  for (const m of html.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) refs.add(m[1]);
+  return [...refs].map((r) => r.split('#')[0].split('?')[0]).filter((r) => r && !/^(https?:|data:|\/\/|mailto:|javascript:)/i.test(r));
+}
+/** html 파일이 참조하는 자산 중 디스크에 없는 것 (CSS 안의 url()도 한 단계 따라간다) */
+export function unresolvedAssets(htmlPath) {
+  const dir = dirname(htmlPath); const missing = [];
+  for (const r of assetRefs(rd(htmlPath))) {
+    const p = resolve(dir, r);
+    if (!existsSync(p)) { missing.push(r); continue; }
+    if (/\.css$/i.test(p)) for (const u of assetRefs(rd(p))) if (!existsSync(resolve(dirname(p), u))) missing.push(`${r} → ${u}`);
+  }
+  return missing;
+}
+/** 결정성 위반 — 시드로 재현 불가한 값. 반환 [사유] */
+export function nondeterminism(html) {
+  const out = [];
+  const body = html.replace(/<!--[\s\S]*?-->/g, '');
+  if (/\b(new\s+Date|Date\.now|Math\.random|performance\.now)\s*\(/.test(body)) out.push('스크립트가 현재 시각·난수를 쓴다(new Date · Date.now · Math.random)');
+  const rel = body.match(/(방금 전|초 전|분 전|시간 전|어제|그제|\bjust now\b|\bminutes? ago\b|\bhours? ago\b|\byesterday\b)/i);
+  if (rel) out.push(`상대 시각 표현 "${rel[1]}" — 고정 날짜로`);
+  const t = today(); if (body.includes(t) || body.includes(t.replace(/-/g, '.'))) out.push(`오늘 날짜(${t})가 박혀 있다 — 내일 깨진다. 고정 날짜로`);
+  return out;
+}
+/** policy.md의 고정 7절 중 빠진 것 */
+export const missingPolicySections = (md) => POLICY_SECTIONS.filter((s) => !new RegExp(`^##\\s*\\d*\\.?\\s*${s.replace(/[/]/g, '\\/')}`, 'm').test(md));
+
+export { join, resolve, relative, existsSync, statSync, readdirSync };

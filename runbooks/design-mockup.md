@@ -1,0 +1,55 @@
+---
+id: RB-design-mockup
+trigger: 화면 목업을 새로 만들거나 고칠 때, 확정을 요청하거나 확정할 때, 확정본을 재개정할 때
+evidence: screens/<모듈>/<화면>/rev.yaml (rev · 확정자 · 해시)
+entry: design-mockup
+summary: 화면 목업 제작·확정 절차 — 화면 폴더 생성(상태 파일·policy·rev), 결정적 데이터, 자산 참조, 확정 요청(ready)·확정(confirm)·재개(reopen). "목업 만들어", "화면 설계", "목업 확정", "목업 수정" 요청 시.
+args: "<모듈> <화면> \"<제목>\" | confirm <모듈>/<화면> | reopen <모듈>/<화면> \"<사유>\""
+---
+
+# 화면 목업 — 만들고 확정하기
+
+- 작성: Claude Code (claude-fable-5-1) · 2026-10-17 (V2 Planning `workflows/design-mockup.md`·런북 `mockup-rev-and-screen-policy` §1 이식)
+
+> 왜 이 순서인가: 확정 목업은 개발 쪽에서 **픽셀 단위로 대조되는 시각 정본**이다. 그래서 ① 확정 뒤에는 고치지 못하고(재확정만) ② 데이터가 결정적이어야 하며 ③ 자산 참조가 어디로 복사되든 열려야 한다. 셋 다 게이트(`scripts/validate.mjs`)가 지킨다.
+
+## 1. 화면 폴더 만들기
+
+```bash
+node scripts/new-screen.mjs <모듈> <화면> "<제목>"     # screens/<모듈>/<화면>/{01-default.html, _screen.css, policy.md, rev.yaml(draft)}
+```
+
+- 상태 하나 = 파일 하나(`NN-slug.html`): 기본·빈·오류·검색 결과 없음·모달 열림·2페이지 … 구현이 도달할 수 있는 모든 시각 상태를 전수로. 상태 파일 이름이 그대로 개발 쪽 대조 시나리오의 키가 된다.
+- 마크업·클래스·`data-testid`는 구현이 **문자 그대로 이식**한다. 그러니 목업에서 이미 구현 가능한 구조로 그린다(div 떡칠·인라인 스타일 금지, 공용 어휘 `_assets/components.css` 소비).
+- 데이터는 결정적으로 — 고정 날짜·고정 이름·고정 개수. 이 값이 개발 쪽 시드 명세다.
+
+## 2. policy.md — 목업이 못 그리는 것
+
+고정 7절(상태 전이·액션별 동작·권한·빈/오류 조건·한계값·동적 동작·문구). 근거는 요구사항·확정 결정·실측뿐이고 없으면 §미결에 질문으로 남긴다. 추측으로 채우지 않는다.
+
+## 3. 확정 요청 → 확정
+
+```bash
+node scripts/validate.mjs                                  # 커밋 전과 같은 검사 — 통과해야 요청 가능
+node scripts/confirm.mjs <모듈>/<화면> --ready               # 사람에게 확정 요청 (visual_status: ready)
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"        # 사람이 실행 — rev+1 · 상태 파일별 sha256 스탬프
+```
+
+- 확정 요청 전, 같은 화면에 걸린 **기존 확정 결정과 대조**한다. 충돌이 있으면 요청문에 "이 확정이 무엇을 대체하는지"를 적어 확정자가 알고 서명하게 한다 — 침묵 병존 금지.
+- 확정 직후 상태 파일 1장을 브라우저로 열어 스타일이 입혀지는지 본다. 무스타일이면 자산 참조를 고치지 말고 **자산을 참조가 열리는 자리에** 둔다.
+
+## 4. 확정본 고치기 — 재확정만
+
+```bash
+node scripts/confirm.mjs <모듈>/<화면> --reopen "<사유>"     # visual_status: reopened — 이제 고칠 수 있다
+# … html·policy 수정 …
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"        # rev+1
+```
+
+reopen 없이 confirmed html을 고치면 커밋이 막힌다. rev가 오르면 개발 쪽은 재승격(rev+1)과 재대조가 작업으로 생긴다 — 그래서 사소한 수정도 rev를 올린다. "조용히 고친 목업"이 가장 비싼 결함이다.
+
+## 함정
+
+- 정적 목업이 못 담는 동작(스크롤·진행 중·삭제 반영)을 목업에 억지로 넣지 않는다 — policy §6과 개발 쪽 E2E의 몫.
+- 폰트는 제1 시각 변수다. `_assets/tokens.css`의 `--font-family-*`가 정본이고 바꾸면 전 화면 일괄 rev+1이다.
+- 이 저장소에 개발 저장소의 내용을 쓰지 않는다(경로·ID·원가·공수). 개발이 목업을 읽는 것이지 그 반대가 아니다.

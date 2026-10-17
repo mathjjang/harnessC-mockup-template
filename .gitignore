@@ -1,0 +1,7 @@
+node_modules/
+.scratch/
+*.local
+*.local.*
+.claude/settings.local.json
+.DS_Store
+Thumbs.db

@@ -1,0 +1,5 @@
+# 포인터 — 정본은 runbooks/design-mockup.md
+description = "화면 목업 제작·확정 절차 — 화면 폴더 생성, 결정적 데이터, 자산 참조, 확정 요청·확정·재개. \"목업 만들어\", \"화면 설계\", \"목업 확정\" 요청 시."
+prompt = """
+절차 정본은 runbooks/design-mockup.md 이다. 그 파일을 읽고 그대로 따른다. 입력: {{args}}
+"""

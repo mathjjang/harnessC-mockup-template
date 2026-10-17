@@ -1,0 +1,13 @@
+/* tokens.css — 디자인 토큰 정본. 화면은 var()로만 쓴다. 값을 바꾸면 전 화면 일괄 rev+1 (폰트는 제1 시각 변수) */
+:root {
+  --font-family-base: "Pretendard", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-base: 14px;
+  --color-bg: #ffffff;
+  --color-fg: #1f2328;
+  --color-muted: #6b7280;
+  --color-accent: #3366cc;
+  --color-border: #e5e7eb;
+  --radius: 6px;
+  --gutter: 24px;
+  --max-w: 1200px;
+}

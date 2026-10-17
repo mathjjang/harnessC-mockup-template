@@ -1,0 +1,4 @@
+#!/bin/sh
+# 목업 저장소 pre-commit — 활성화: git config core.hooksPath scripts/git-hooks (1회). 우회 플래그 없음.
+ROOT="$(git rev-parse --show-toplevel)"
+node "$ROOT/scripts/validate.mjs" || exit 1     # 확정본 불변 · 자산 참조 · 결정성 · 경계 · 형식
