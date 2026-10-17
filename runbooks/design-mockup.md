@@ -9,8 +9,6 @@ args: "<모듈> <화면> \"<제목>\" | confirm <모듈>/<화면> | reopen <모�
 
 # 화면 목업 — 만들고 확정하기
 
-- 작성: Claude Code (claude-fable-5-1) · 2026-10-17 (V2 Planning `workflows/design-mockup.md`·런북 `mockup-rev-and-screen-policy` §1 이식)
-
 > 왜 이 순서인가: 확정 목업은 개발 쪽에서 **픽셀 단위로 대조되는 시각 정본**이다. 그래서 ① 확정 뒤에는 고치지 못하고(재확정만) ② 데이터가 결정적이어야 하며 ③ 자산 참조가 어디로 복사되든 열려야 한다. 셋 다 게이트(`scripts/validate.mjs`)가 지킨다.
 
 ## 1. 화면 폴더 만들기

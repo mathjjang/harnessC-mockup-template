@@ -1,32 +1,120 @@
 # harnessC-mockup-template
 
-하네스C 개발 저장소와 짝을 이루는 **목업(기획·디자인) 저장소**의 뼈대. 확정 목업이 신규 화면의 시각 정본이 되고, 개발 저장소가 그것을 읽어 픽셀 단위로 대조한다(`harnessC-template`의 `mockup-diff.mjs`).
+하네스C 개발 저장소와 짝을 이루는 **목업(기획·디자인) 저장소**의 뼈대. 확정된 목업이 신규 화면의 시각 정본이 되고, 개발 저장소가 그것을 읽어 픽셀 단위로 대조한다(`harnessC-template`의 `mockup-diff.mjs`). 테스트 서버에서 써 보고 발견한 문제의 **접수처**도 여기다.
 
 - 버전: **0.1.3** · 릴리스 태그 `v0.1.3` · 짝: harnessC-template `v0.3.5`
-- 원칙: **개발과 기획·디자인은 다른 저장소다.** 이 저장소는 별도 GitHub 저장소로 만들고, 개발 저장소에는 형제 체크아웃으로만 연결한다(중첩·복사·submodule 금지). 의존은 개발→목업 한 방향 — 이 저장소는 개발 저장소를 모른다.
+- 원칙: **개발과 기획·디자인은 다른 저장소다.** 이 저장소는 개발 저장소를 모른다(의존은 개발→목업 한 방향). 개발자 혼자 목업까지 만들 때만 개발 저장소 안 `mockups/`에 둔다 — 규칙은 같다.
 
-## 언제, 어디에 만드나
+---
 
-개발 저장소와 **동시에 만들 필요는 없다.** 화면 설계가 시작되는 시점에 만든다. UI가 없는 프로젝트(데이터 파이프라인 등)는 이 저장소가 없다. 자리는 둘 중 하나를 고른다 — 개발 저장소 루트에서 한 명령으로:
+## 사용법
 
-| | `separate` (기본) | `embedded` |
+명령은 전부 저장소 루트에서 `node`로 돈다(embedded면 `node mockups/scripts/…`). 에이전트에게는 `/design-mockup`(목업 제작·확정) · `/qa-intake`(검수 접수)로 시킨다 — Claude Code·Codex·Gemini CLI 모두 같은 이름이고 절차 정본은 `runbooks/`.
+
+### 0. 만들기 — 개발 저장소에서 한 명령
+
+화면 설계가 시작될 때 만든다(개발 저장소와 동시일 필요 없음). 개발 저장소 루트에서:
+
+| | 기획·디자인이 따로(기본) | 개발자가 직접 |
 |---|---|---|
-| 언제 | 기획·디자인이 다른 사람·조직일 때 | 개발자 혼자 목업까지 만들 때 |
-| 자리 | 별도 GitHub 저장소 → 형제 폴더 `../<프로젝트>-mockups` | 개발 저장소 안 `mockups/` (개발 저장소가 추적) |
-| 명령 | `node .harness/scripts/mockup-diff.mjs init separate` (gh가 있으면 템플릿으로 생성·clone) | `node .harness/scripts/mockup-diff.mjs init embedded` |
-| harness.yaml | `{ path: ../<프로젝트>-mockups, role: mockup, mode: read-only }` | `{ path: mockups, role: mockup, mode: read-write, embedded: true }` |
-| 게이트 | 이 저장소의 pre-commit(`scripts/validate.mjs`) | 개발 저장소 lint ⑰이 `mockups/scripts/validate.mjs`를 대신 돈다 |
-| 입구(/design-mockup) | 이 저장소의 `.claude/ .agents/ .gemini/` | 개발 저장소 `harness-build`가 `mockups/runbooks/`에서 생성 |
+| 명령 | `node .harness/scripts/mockup-diff.mjs init separate` | `node .harness/scripts/mockup-diff.mjs init embedded` |
+| 자리 | 별도 GitHub 저장소 → 형제 폴더 `../<프로젝트>-mockups` | 개발 저장소 안 `mockups/` |
+| 개발 저장소 등록 | `{ path: ../<프로젝트>-mockups, role: mockup, mode: read-write, writable: [qa/] }` — 개발은 검수 회신(`qa/`)만 쓴다 | `{ path: mockups, role: mockup, mode: read-write, embedded: true }` |
+| 커밋 검사 | 이 저장소의 pre-commit | 개발 저장소의 검사가 대신 돈다 |
 
-레이아웃이 같으므로 **embedded → separate 이사는 폴더 이동 하나**다: `mockups/`를 새 비공개 저장소로 옮기고 harness.yaml의 path를 바꾼다. 기획 담당이 생기면 그때 분리한다.
+개발 저장소의 프로젝트 설정 질문(Q4)에 `self`라고 답했으면 `mockups/`가 이미 만들어져 있다. 나중에 기획 담당이 생기면 `mockups/`를 새 저장소로 옮기고 등록 경로만 바꾸면 된다.
 
-수동으로 할 때(GitHub "Use this template" → clone):
+수동으로 만들 때(GitHub "Use this template" → clone):
 
 ```bash
 node init.mjs --name <프로젝트>
 git config core.hooksPath scripts/git-hooks
-node scripts/new-screen.mjs <모듈> <화면> "<제목>"
 ```
+
+### 1. 기획자 — 화면 만들기
+
+```bash
+node scripts/new-screen.mjs <모듈> <화면> "<제목>"
+#  → screens/<모듈>/<화면>/ 에 01-default.html · _screen.css · policy.md · rev.yaml(draft)
+```
+
+- **상태 하나 = 파일 하나** — `01-default.html` · `02-empty.html` · `03-error.html` · `04-modal-open.html` … 구현이 도달할 수 있는 화면 상태를 빠짐없이.
+- 마크업·클래스·`data-testid`는 개발이 **글자 그대로 옮긴다**. 공용 모양은 `screens/_assets/components.css`·`tokens.css`를 쓰고, 화면 고유 모양만 `_screen.css`에.
+- **예시 데이터는 고정값으로** — 오늘 날짜·"3분 전"·난수 금지. 이 값이 개발 쪽 대조의 기준 데이터가 된다.
+- `policy.md`에 목업이 그리지 못하는 것(상태 전이 · 버튼별 동작 · 권한 · 빈/오류 조건 · 한계값 · 움직임 · 문구)을 7절로. 답이 없는 것은 「미결」에 질문으로.
+- 커밋할 때마다 검사가 돈다: `node scripts/validate.mjs`로 미리 볼 수 있다.
+
+### 2. 확정 — 사람이 서명한다
+
+```bash
+node scripts/confirm.mjs <모듈>/<화면> --ready           # 확정 요청 (에이전트·기획자)
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"     # 확정 — rev+1, 상태 파일마다 지문(해시) 기록
+```
+
+- 확정 전 검사: 자산 참조가 열리는가 · 데이터가 고정값인가 · policy 7절이 있는가 — 하나라도 아니면 확정되지 않는다.
+- 확정된 화면은 개발 저장소에서 `mockup-diff.mjs promote FDR-… <모듈>/<화면>`으로 가져간다.
+
+### 3. 확정본 고치기 — 다시 확정만
+
+```bash
+node scripts/confirm.mjs <모듈>/<화면> --reopen "<사유>"   # 고칠 수 있게 연다
+#  … html·policy 수정 …
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"      # 다시 확정 — rev+1
+```
+
+`--reopen` 없이 확정된 html을 고치면 커밋이 막힌다. rev가 오르면 개발 쪽에 재승격·재대조 작업이 생긴다 — 그래서 작은 수정도 rev를 올린다.
+
+### 4. 검수자 — 테스트 서버에서 써 보고 접수
+
+```bash
+node scripts/qa.mjs new <slug> "<증상 한 줄>" --by "<이름>" --screen <모듈>/<화면> --server <테스트 서버 주소> --capture <캡처.png>
+#  → qa/QA-<날짜>-<slug>/report.md 의 「무엇을 했나 · 무엇이 나왔나 · 되어야 할 모습」을 채운다
+```
+
+검수자는 **사실만** 낸다 — 캡처 · 재현 절차 · 결과 · 되어야 할 모습(말 그대로). 심각도·유형은 정하지 않는다.
+
+### 5. 분류 — 에이전트가, 근거와 함께
+
+```bash
+node scripts/qa.mjs classify QA-… <유형> "<근거 — 캡처 속 주소·콘솔·기획의 어느 절>" --by "<에이전트>"
+```
+
+판별 질문을 위에서부터:
+
+1. 확정 목업·policy에 이 상황의 답이 있나? 없다 → **정책공백**
+2. 답이 있는데 제품이 다르게 동작하나? → **오류**
+3. 답대로 동작하는데 그 답을 바꾸고 싶나? 모습·배치 → **기획수정(UI)** · 동작 규칙 → **기획수정(정책)**
+
+**유형이 처리 경로를 정한다:**
+
+| 유형 | 누가·어디서 | 닫히는 조건 |
+|---|---|---|
+| 오류 | 개발 저장소가 가져가 고치고, 다른 사람(리뷰어)이 확인해 `qa/<ID>/resolution.md`에 회신 | 회신이 resolved·verified + 기획의 확인 |
+| 기획수정(UI) | 여기서: `--reopen` → 고침 → 다시 확정 → `node scripts/qa.mjs change QA-… "<모듈>/<화면> rev N"` | 반영 근거(change) 필수 |
+| 기획수정(정책) | 여기서: policy.md 개정 → `qa.mjs change QA-… "policy.md <날짜> 개정"` | 반영 근거 필수 |
+| 정책공백 | 사람이 결정 → `node scripts/qa.mjs decide QA-… "<결정>"` → 다시 분류 | 결정 필수 |
+
+기획수정을 개발로 보내지 않는다 — 기획 없이 화면·정책이 코드에서 바뀌는 것을 막는 장치다. 오류와 바꾸고 싶은 것이 섞인 건은 둘로 나눠 접수한다.
+
+### 6. 닫기 — 기획(보고자)만
+
+```bash
+node scripts/qa.mjs close QA-… --by "<이름>" "<확인 방법 — 테스트 서버에서 무엇을 봤나>"
+node scripts/qa.mjs reopen QA-… "<여전히 재현되는 이유>"
+```
+
+현황은 `qa/INDEX.generated.md`의 「사람 할 일」만 보면 된다: 분류 대기 · 결정 대기 · 확인 후 닫기. "재현 불가"로 닫지 않는다 — 검수자에게 다시 묻는다.
+
+### 명령 한눈에
+
+| 명령 | 하는 일 |
+|---|---|
+| `scripts/new-screen.mjs <모듈> <화면> "<제목>"` | 화면 폴더 생성 |
+| `scripts/confirm.mjs <화면> --ready · --by · --reopen` | 확정 요청 · 확정(rev+1) · 재개 |
+| `scripts/qa.mjs new · classify · decide · change · close · reopen · index` | 검수 접수 · 분류 · 결정 · 반영 근거 · 닫기 · 재열림 · 현황 |
+| `scripts/validate.mjs` | 커밋 검사(pre-commit과 같음) |
+
+---
 
 ## 구조
 
@@ -36,37 +124,33 @@ screens/_assets/         tokens.css · components.css · fonts/   — 공용 시
 qa/QA-<YYMMDD>-<slug>/   검수 접수 — report.md(기획 소유) · intake/(캡처) · resolution.md(개발 소유)
 runbooks/                design-mockup.md(제작·확정·재개) · qa-intake.md(검수 접수·분류·닫기) — 절차 정본
 scripts/                 new-screen · confirm · qa · validate(pre-commit 게이트) · 각각 --self-test
-mockup.yaml              프로젝트명 · 뷰포트
-AGENTS.md                에이전트 규칙 (≤2KB) · CLAUDE.md·GEMINI.md는 입구
-.claude/ .agents/ .gemini/   런북 포인터 (세 런타임의 /design-mockup)
+mockup.yaml              프로젝트명 · 뷰포트(개발 저장소 mockup.viewport와 같아야 한다)
+AGENTS.md                에이전트 규칙 · CLAUDE.md·GEMINI.md는 입구
+.claude/ .agents/ .gemini/   런북 포인터 (세 런타임의 /design-mockup · /qa-intake)
 ```
 
-## 검수 — 테스트 서버에서 써보다 발견한 것
-
-접수처는 이 저장소 `qa/`다(`node scripts/qa.mjs new <slug> "<증상>" --capture …`, 절차 `runbooks/qa-intake.md`). 검수자는 캡처·증상·되어야 할 모습만 내고, 에이전트가 유형을 분류한다. **유형이 처리 경로를 정한다**: `오류` → 개발 저장소가 가져가 고치고 리뷰어가 검증(`qa/<ID>/resolution.md`) · `기획수정(UI)` → 여기서 목업 rev+1 · `기획수정(정책)` → policy.md 개정 · `정책공백` → 사람 결정. 닫기는 기획만, 조건은 게이트가 지킨다(기획수정은 반영 근거 없이는 닫히지 않는다). 현황은 `qa/INDEX.generated.md`.
-
-## 흐름
-
 ```
-new-screen → 상태 파일·policy 채움 → validate → confirm --ready → (사람) confirm --by → 개발 저장소 promote
-                                         ↑                                             │
-                                         └──── confirm --reopen "<사유>" → 고침 → confirm(rev+1) ←┘ (재대조 필요)
+new-screen → 상태 파일·policy 채움 → confirm --ready → (사람) confirm --by → 개발 저장소 promote → 구현 → 대조 → 테스트 서버
+     ↑                                                                                                        │
+     └──── confirm --reopen → 고침 → confirm(rev+1) ←── 기획수정 ←── qa classify ←── qa new (검수자) ←────────┘
+                                                    오류 ──→ 개발 저장소 qa-intake pull → 수정 → resolution(verified) → qa close
 ```
 
-| 게이트(validate) | 막는 것 |
+| 커밋 검사(validate) | 막는 것 |
 |---|---|
-| 확정본 불변 | confirmed 화면의 html이 rev.yaml 해시와 다르면 거부 — 수정은 reopen→confirm(rev+1)만 |
-| 자산 참조 | stylesheet·script·img·`url()`이 디스크에서 안 열리면 거부(무스타일 목업) |
-| 결정성 | 현재 시각·난수·상대 시각·오늘 날짜 — confirmed·ready는 거부, draft는 경고 |
+| 확정본 불변 | 확정된 화면의 html이 기록된 지문과 다르면 거부 — 수정은 reopen → 다시 확정만 |
+| 자산 참조 | stylesheet·script·img·`url()`이 디스크에서 안 열리면 거부(모양 없는 목업) |
+| 고정 데이터 | 현재 시각·난수·상대 시각·오늘 날짜 — 확정·확정 요청 상태는 거부, 초안은 경고 |
 | 경계 | 개발 저장소 경로·기록 ID가 들어오면 거부 |
-| 형식 | rev.yaml 스키마 · `NN-slug.html` 이름 · policy.md 7절 |
+| 형식 | rev.yaml · `NN-slug.html` 이름 · policy.md 7절 |
+| 검수 | 닫기 조건(확인 기록 · 기획수정은 반영 근거 · 정책공백은 결정 · 오류는 개발 회신) · 캡처 실재 · 고친 사람의 자기 확인 |
 
 ## 검증
 
 ```bash
-for s in scripts/*.mjs; do node $s --self-test; done && node scripts/validate.mjs
+for s in scripts/*.mjs init.mjs; do node $s --self-test; done && node scripts/validate.mjs
 ```
 
 ## 개정
 
-이 템플릿의 규칙 변경은 하네스C의 REP에 준한다 — 개발 저장소 쪽(harnessC-template)에 ADR을 남기고 두 템플릿의 짝 버전을 맞춘다. 라이선스: 미정(비공개).
+규칙이 바뀔 때마다 버전을 올리고 짝 템플릿(harnessC-template)과 같은 시점에 태그한다. 라이선스: 미정(비공개).
