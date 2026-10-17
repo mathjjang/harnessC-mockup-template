@@ -33,12 +33,17 @@ node scripts/new-screen.mjs <모듈> <화면> "<제목>"
 ```
 screens/<모듈>/<화면>/   NN-slug.html(상태 하나 = 파일 하나) · _screen.css · policy.md · rev.yaml(확정 스탬프)
 screens/_assets/         tokens.css · components.css · fonts/   — 공용 시각 어휘 (화면이 소비만 한다)
-runbooks/                design-mockup.md — 제작·확정·재개 절차 정본
-scripts/                 new-screen · confirm · validate(pre-commit 게이트) · 각각 --self-test
+qa/QA-<YYMMDD>-<slug>/   검수 접수 — report.md(기획 소유) · intake/(캡처) · resolution.md(개발 소유)
+runbooks/                design-mockup.md(제작·확정·재개) · qa-intake.md(검수 접수·분류·닫기) — 절차 정본
+scripts/                 new-screen · confirm · qa · validate(pre-commit 게이트) · 각각 --self-test
 mockup.yaml              프로젝트명 · 뷰포트
 AGENTS.md                에이전트 규칙 (≤2KB) · CLAUDE.md·GEMINI.md는 입구
 .claude/ .agents/ .gemini/   런북 포인터 (세 런타임의 /design-mockup)
 ```
+
+## 검수 — 테스트 서버에서 써보다 발견한 것
+
+접수처는 이 저장소 `qa/`다(`node scripts/qa.mjs new <slug> "<증상>" --capture …`, 절차 `runbooks/qa-intake.md`). 검수자는 캡처·증상·되어야 할 모습만 내고, 에이전트가 유형을 분류한다. **유형이 처리 경로를 정한다**: `오류` → 개발 저장소가 가져가 고치고 리뷰어가 검증(`qa/<ID>/resolution.md`) · `기획수정(UI)` → 여기서 목업 rev+1 · `기획수정(정책)` → policy.md 개정 · `정책공백` → 사람 결정. 닫기는 기획만, 조건은 게이트가 지킨다(기획수정은 반영 근거 없이는 닫히지 않는다). 현황은 `qa/INDEX.generated.md`.
 
 ## 흐름
 

@@ -8,6 +8,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, existsSync, join, readdirSync, readRev, rd, sha, STATUSES, STATE_RE, stateFiles, unresolvedAssets, nondeterminism, missingPolicySections, listScreens, posix, relative } from './lib/mockup.mjs';
 import { readFileSync } from 'node:fs';
+import { validateQa } from './qa.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEV_MARK_RE = /\b(FDR|ADR|RFC|PLAN|PG|QA|HR|BL|INC|HO|RETRO)-\d{6}-[a-z0-9-]+|docs\/(features|decisions|research|handoffs|records|queue|specs)\//;
@@ -39,6 +40,8 @@ export function validate(root) {
     const pol = rd(join(sc.path, 'policy.md')); const ms = missingPolicySections(pol); if (ms.length) (strict ? problems : warnings).push(`${tag}: policy.md 절 누락 ${ms.join('·')}`);
     const dm = pol.match(DEV_MARK_RE); if (dm) problems.push(`${tag}: policy.md에 개발 저장소 표식(${dm[0]})`);
   }
+  // ⑨ 검수 접수(qa/) — 스키마·닫기 조건(확인 기록 · 기획수정은 change · 정책공백은 decision · 오류는 resolution)·캡처 실재·개발 표식·자기 검증
+  problems.push(...validateQa(root));
   return { problems, warnings };
 }
 
@@ -54,8 +57,9 @@ if (process.argv.includes('--self-test')) {
     const dr = create(tmp, 'm', 'draft', 'D'); writeFileSync(join(dr.path, '02-x.html'), '<html><body>3분 전 <!-- FDR-261017-x --></body></html>'); writeFileSync(join(dr.path, 'bad name.html'), '<html></html>'); writeFileSync(join(dr.path, '03-nocss.html'), '<html><head><link rel="stylesheet" href="./missing.css"></head></html>');
     mkdirSync(join(tmp, 'screens', 'm', 'norev'), { recursive: true }); writeFileSync(join(tmp, 'screens', 'm', 'norev', '01-a.html'), '<html></html>');
     const bad = create(tmp, 'm', 'badstatus', 'B'); writeFileSync(join(bad.path, 'rev.yaml'), rd(join(bad.path, 'rev.yaml')).replace('visual_status: draft', 'visual_status: done'));
+    mkdirSync(join(tmp, 'qa', 'QA-000000-bad'), { recursive: true }); writeFileSync(join(tmp, 'qa', 'QA-000000-bad', 'report.md'), '---\nid: QA-000000-bad\nstate: closed\ntype: 오류\nbasis: x\nclosed: ""\ncaptures: []\n---\n# QA-000000-bad · t\n');
     const { problems, warnings } = validate(tmp);
-    const want = ['m/tampered: 01-default.html가 rev 1 확정본과 다르다', 'm/draft: 02-x.html에 개발 저장소 표식(FDR-261017-x)', 'm/draft: 상태 파일 이름은 NN-slug.html — bad name.html', 'm/draft: 03-nocss.html 자산 참조가 열리지 않는다', 'm/norev: rev.yaml 없음', 'm/badstatus: visual_status(done)'];
+    const want = ['m/tampered: 01-default.html가 rev 1 확정본과 다르다', 'm/draft: 02-x.html에 개발 저장소 표식(FDR-261017-x)', 'm/draft: 상태 파일 이름은 NN-slug.html — bad name.html', 'm/draft: 03-nocss.html 자산 참조가 열리지 않는다', 'm/norev: rev.yaml 없음', 'm/badstatus: visual_status(done)', 'QA-000000-bad: closed인데 확인 기록', 'QA-000000-bad: 오류 건이 resolution'];
     for (const w of want) if (!problems.some((p) => p.includes(w))) fails.push('미검출: ' + w);
     if (!warnings.some((w) => /m\/draft: 02-x\.html 상대 시각/.test(w))) fails.push('draft 비결정은 경고여야');
     if (problems.some((p) => p.startsWith('m/ok:'))) fails.push('양성 오탐: ' + problems.filter((p) => p.startsWith('m/ok:')).join(' | '));
