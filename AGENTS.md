@@ -1,6 +1,6 @@
 # AGENTS.md — {{PROJECT_NAME}} 목업 저장소 에이전트 규칙
 
-> 기획·디자인이 보는 저장소. 모든 에이전트(Claude Code·Codex·Gemini·Cursor 등) 공통. 개발 저장소와는 **별도 GitHub 저장소**이며, 이 저장소는 개발 저장소를 모른다(의존은 개발→목업 한 방향). 절차 정본은 `runbooks/design-mockup.md`.
+> 기획·디자인이 보는 저장소. 모든 에이전트(Claude Code·Codex·Gemini·Cursor 등) 공통. 기본은 개발 저장소와 **별도 GitHub 저장소**(기획·디자인 분리)이고, 개발자 혼자일 때는 개발 저장소 안 `mockups/`에 둘 수 있다(embedded — 규칙은 같다). 어느 쪽이든 이 폴더는 개발 저장소를 모른다(의존은 개발→목업 한 방향). 절차 정본은 `runbooks/design-mockup.md`.
 
 ## 무엇이 정본인가
 

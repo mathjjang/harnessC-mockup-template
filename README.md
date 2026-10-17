@@ -5,20 +5,27 @@
 - 버전: **0.1.0** · 짝: harnessC-template ≥ 0.3.1
 - 원칙: **개발과 기획·디자인은 다른 저장소다.** 이 저장소는 별도 GitHub 저장소로 만들고, 개발 저장소에는 형제 체크아웃으로만 연결한다(중첩·복사·submodule 금지). 의존은 개발→목업 한 방향 — 이 저장소는 개발 저장소를 모른다.
 
-## 언제 만드나
+## 언제, 어디에 만드나
 
-개발 저장소와 **동시에 만들 필요는 없다.** 화면 설계가 시작되는 시점에 만든다. UI가 없는 프로젝트(데이터 파이프라인 등)는 이 저장소가 없다.
+개발 저장소와 **동시에 만들 필요는 없다.** 화면 설계가 시작되는 시점에 만든다. UI가 없는 프로젝트(데이터 파이프라인 등)는 이 저장소가 없다. 자리는 둘 중 하나를 고른다 — 개발 저장소 루트에서 한 명령으로:
+
+| | `separate` (기본) | `embedded` |
+|---|---|---|
+| 언제 | 기획·디자인이 다른 사람·조직일 때 | 개발자 혼자 목업까지 만들 때 |
+| 자리 | 별도 GitHub 저장소 → 형제 폴더 `../<프로젝트>-mockups` | 개발 저장소 안 `mockups/` (개발 저장소가 추적) |
+| 명령 | `node .harness/scripts/mockup-diff.mjs init separate` (gh가 있으면 템플릿으로 생성·clone) | `node .harness/scripts/mockup-diff.mjs init embedded` |
+| harness.yaml | `{ path: ../<프로젝트>-mockups, role: mockup, mode: read-only }` | `{ path: mockups, role: mockup, mode: read-write, embedded: true }` |
+| 게이트 | 이 저장소의 pre-commit(`scripts/validate.mjs`) | 개발 저장소 lint ⑰이 `mockups/scripts/validate.mjs`를 대신 돈다 |
+| 입구(/design-mockup) | 이 저장소의 `.claude/ .agents/ .gemini/` | 개발 저장소 `harness-build`가 `mockups/runbooks/`에서 생성 |
+
+레이아웃이 같으므로 **embedded → separate 이사는 폴더 이동 하나**다: `mockups/`를 새 비공개 저장소로 옮기고 harness.yaml의 path를 바꾼다. 기획 담당이 생기면 그때 분리한다.
+
+수동으로 할 때(GitHub "Use this template" → clone):
 
 ```bash
-# 1. GitHub "Use this template" → <프로젝트>-mockups (비공개). 개발 저장소의 형제 폴더로 clone
-# 2. 이름 치환 + 훅
 node init.mjs --name <프로젝트>
 git config core.hooksPath scripts/git-hooks
-# 3. 첫 화면
 node scripts/new-screen.mjs <모듈> <화면> "<제목>"
-# 4. 개발 저장소 harness.yaml 에 등록 (개발 쪽에서)
-#    references:
-#      - { path: ../<프로젝트>-mockups, role: mockup, mode: read-only }
 ```
 
 ## 구조
