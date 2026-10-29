@@ -2,8 +2,8 @@
 
 하네스C 개발 저장소와 함께 쓰는 목업(기획·디자인) 저장소 템플릿. 여기서 확정한 화면을 개발이 그대로 구현하고, 실제 화면과 비교한다. 테스트 서버에서 찾은 문제도 여기에 접수한다.
 
-- 버전 0.2.0
-- 짝 템플릿: [harnessC-template](https://github.com/mathjjang/harnessC-template) v0.4.0
+- 버전 0.2.1
+- 짝 템플릿: [harnessC-template](https://github.com/mathjjang/harnessC-template) v0.4.1
 
 기획·디자인 저장소와 개발 저장소는 나눈다. 개발자 혼자 목업까지 만들면 개발 저장소 안 `mockups/`에 둔다.
 
