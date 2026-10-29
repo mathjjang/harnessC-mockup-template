@@ -26,10 +26,11 @@ export function validate(root) {
     const files = stateFiles(sc.path);
     for (const f of files) if (!STATE_RE.test(f)) problems.push(`${tag}: 상태 파일 이름은 NN-slug.html — ${f}`);
     const strict = ['confirmed', 'ready'].includes(rev.visual_status);
-    if (rev.visual_status === 'confirmed') {
-      if (!rev.confirmed_by) problems.push(`${tag}: confirmed인데 confirmed_by 없음`);
-      for (const f of confirmedFiles(sc.path)) { if (!rev.files[f]) problems.push(`${tag}: ${f}는 rev ${rev.rev} 확정 뒤 추가됐다 — confirm.mjs --reopen 후 재확정(rev+1)`); else if (sha(readFileSync(join(sc.path, f))) !== rev.files[f]) problems.push(`${tag}: ${f}가 rev ${rev.rev} 확정본과 다르다 — 확정 후 수정은 confirm.mjs --reopen "<사유>" → 고침 → confirm(rev+1)만`); }
-      for (const f of Object.keys(rev.files)) if (!confirmedFiles(sc.path).includes(f)) problems.push(`${tag}: 확정 상태 파일 ${f}가 사라졌다 — reopen 후 재확정`);
+    if (rev.visual_status === 'confirmed' && !rev.confirmed_by) problems.push(`${tag}: confirmed인데 confirmed_by 없음`);
+    if (strict) {   // confirmed·ready 모두 지문 대조 — ready는 "손 뗐다" 선언이라 그 뒤 고치면 확정자가 헛것을 확정한다
+      const fix = rev.visual_status === 'confirmed' ? 'confirm.mjs --reopen "<사유>" → 고침 → confirm(rev+1)' : 'confirm.mjs --ready 다시(지문 재고정)';
+      for (const f of confirmedFiles(sc.path)) { if (!rev.files[f]) problems.push(`${tag}: ${f}는 rev ${rev.rev} ${rev.visual_status} 뒤 추가됐다 — ${fix}`); else if (sha(readFileSync(join(sc.path, f))) !== rev.files[f]) problems.push(`${tag}: ${f}가 rev ${rev.rev} ${rev.visual_status === 'confirmed' ? '확정본' : 'ready 선언본'}과 다르다 — ${rev.visual_status === 'confirmed' ? '확정 후 수정은 ' + fix + '만' : fix}`); }
+      for (const f of Object.keys(rev.files)) if (!confirmedFiles(sc.path).includes(f)) problems.push(`${tag}: ${rev.visual_status} 파일 ${f}가 사라졌다 — ${fix}`);
     }
     for (const f of files) {
       const miss = unresolvedAssets(join(sc.path, f)); if (miss.length) problems.push(`${tag}: ${f} 자산 참조가 열리지 않는다(무스타일) — ${miss.join(', ')}`);
@@ -55,13 +56,15 @@ if (process.argv.includes('--self-test')) {
     const ok = create(tmp, 'm', 'ok', 'OK'); confirm(tmp, 'm/ok', { by: 'cto' });
     const tam = create(tmp, 'm', 'tampered', 'T'); confirm(tmp, 'm/tampered', { by: 'cto' }); writeFileSync(join(tam.path, '01-default.html'), rd(join(tam.path, '01-default.html')) + '<!-- 몰래 -->');
     const pol = create(tmp, 'm', 'poltamper', 'P'); confirm(tmp, 'm/poltamper', { by: 'cto' }); writeFileSync(join(pol.path, 'policy.md'), rd(join(pol.path, 'policy.md')) + '\n- 규칙 하나 더\n');   // 정책만 고침 — 화면은 그대로
+    const css = create(tmp, 'm', 'csstamper', 'S'); confirm(tmp, 'm/csstamper', { by: 'cto' }); writeFileSync(join(css.path, '_screen.css'), rd(join(css.path, '_screen.css')) + '\n/* 몰래 */\n');   // CSS만 고침 — 렌더가 rev 없이 바뀐다
+    const rdy = create(tmp, 'm', 'readytamper', 'R'); confirm(tmp, 'm/readytamper', { ready: true }); writeFileSync(join(rdy.path, '01-default.html'), rd(join(rdy.path, '01-default.html')) + '<!-- ready 뒤 -->');   // 손 뗌 선언 뒤 고침
     const crlf = create(tmp, 'm', 'crlf', 'C'); confirm(tmp, 'm/crlf', { by: 'cto' }); writeFileSync(join(crlf.path, '01-default.html'), rd(join(crlf.path, '01-default.html')).replace(/\n/g, '\r\n'));   // 개행만 바뀜 — 같은 내용(거짓 경보 금지)
     const dr = create(tmp, 'm', 'draft', 'D'); writeFileSync(join(dr.path, '02-x.html'), '<html><body>3분 전 <!-- FDR-261017-x --></body></html>'); writeFileSync(join(dr.path, 'bad name.html'), '<html></html>'); writeFileSync(join(dr.path, '03-nocss.html'), '<html><head><link rel="stylesheet" href="./missing.css"></head></html>');
     mkdirSync(join(tmp, 'screens', 'm', 'norev'), { recursive: true }); writeFileSync(join(tmp, 'screens', 'm', 'norev', '01-a.html'), '<html></html>');
     const bad = create(tmp, 'm', 'badstatus', 'B'); writeFileSync(join(bad.path, 'rev.yaml'), rd(join(bad.path, 'rev.yaml')).replace('visual_status: draft', 'visual_status: done'));
     mkdirSync(join(tmp, 'qa', 'QA-000000-bad'), { recursive: true }); writeFileSync(join(tmp, 'qa', 'QA-000000-bad', 'report.md'), '---\nid: QA-000000-bad\nstate: closed\ntype: 오류\nbasis: x\nclosed: ""\ncaptures: []\n---\n# QA-000000-bad · t\n');
     const { problems, warnings } = validate(tmp);
-    const want = ['m/tampered: 01-default.html가 rev 1 확정본과 다르다', 'm/poltamper: policy.md가 rev 1 확정본과 다르다', 'm/draft: 02-x.html에 개발 저장소 표식(FDR-261017-x)', 'm/draft: 상태 파일 이름은 NN-slug.html — bad name.html', 'm/draft: 03-nocss.html 자산 참조가 열리지 않는다', 'm/norev: rev.yaml 없음', 'm/badstatus: visual_status(done)', 'QA-000000-bad: closed인데 확인 기록', 'QA-000000-bad: 오류 건이 resolution'];
+    const want = ['m/tampered: 01-default.html가 rev 1 확정본과 다르다', 'm/poltamper: policy.md가 rev 1 확정본과 다르다', 'm/csstamper: _screen.css가 rev 1 확정본과 다르다', 'm/readytamper: 01-default.html가 rev 0 ready 선언본과 다르다', 'm/draft: 02-x.html에 개발 저장소 표식(FDR-261017-x)', 'm/draft: 상태 파일 이름은 NN-slug.html — bad name.html', 'm/draft: 03-nocss.html 자산 참조가 열리지 않는다', 'm/norev: rev.yaml 없음', 'm/badstatus: visual_status(done)', 'QA-000000-bad: closed인데 확인 기록', 'QA-000000-bad: 오류 건이 resolution'];
     for (const w of want) if (!problems.some((p) => p.includes(w))) fails.push('미검출: ' + w);
     if (!warnings.some((w) => /m\/draft: 02-x\.html 상대 시각/.test(w))) fails.push('draft 비결정은 경고여야');
     if (problems.some((p) => p.startsWith('m/ok:'))) fails.push('양성 오탐: ' + problems.filter((p) => p.startsWith('m/ok:')).join(' | '));
@@ -69,7 +72,7 @@ if (process.argv.includes('--self-test')) {
     if (problems.some((p) => /m\/draft: 02-x\.html 상대 시각/.test(p))) fails.push('draft 비결정이 위반으로');
   } catch (e) { fails.push('예외: ' + e.message); }
   rmSync(tmp, { recursive: true, force: true });
-  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (9종 검출 · 정책 변조 · draft 경고 · 양성 대조 1 · CRLF 무경보)');
+  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (11종 검출 · 정책·CSS 변조 · ready 뒤 수정 · draft 경고 · 양성 대조 1 · CRLF 무경보)');
   process.exit(fails.length ? 1 : 0);
 }
 if (process.argv[1] && /validate\.mjs$/.test(process.argv[1]) && !process.argv.includes('--self-test')) {

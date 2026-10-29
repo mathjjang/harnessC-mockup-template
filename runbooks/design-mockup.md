@@ -29,8 +29,8 @@ node scripts/new-screen.mjs <모듈> <화면> "<제목>"     # screens/<모듈>/
 
 ```bash
 node scripts/validate.mjs                                  # 커밋 전과 같은 검사 — 통과해야 요청 가능
-node scripts/confirm.mjs <모듈>/<화면> --ready               # 사람에게 확정 요청 (visual_status: ready)
-node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"        # 사람이 실행 — rev+1 · 상태 파일별 sha256 스탬프
+node scripts/confirm.mjs <모듈>/<화면> --ready               # 사람에게 확정 요청 (visual_status: ready) — 이 시점 파일을 지문으로 고정. 그 뒤 고쳤으면 --ready 다시
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>" --note "<이번 rev에 들어간 것>"   # 사람이 실행 — rev+1 · 상태 파일·css·policy.md sha256 스탬프 · history 한 줄
 ```
 
 - 확정 요청 전, 같은 화면에 걸린 **기존 확정 결정과 대조**한다. 충돌이 있으면 요청문에 "이 확정이 무엇을 대체하는지"를 적어 확정자가 알고 서명하게 한다 — 침묵 병존 금지.

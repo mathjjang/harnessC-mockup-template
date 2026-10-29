@@ -23,19 +23,21 @@ export function config(root) {
 /** rev.yaml 읽기 — { screen, title, rev, visual_status, confirmed, confirmed_by, files{html: sha}, raw } */
 export function readRev(dir) {
   const t = rd(join(dir, 'rev.yaml')); if (!t) return null;
-  const files = {}; for (const m of t.matchAll(/^  ([^:\n]+\.(?:html|md)):\s*([0-9a-f]{64})\s*$/gm)) files[m[1]] = m[2];
-  return { screen: scalar(t, 'screen'), title: scalar(t, 'title'), rev: Number(scalar(t, 'rev')) || 0, visual_status: scalar(t, 'visual_status'), confirmed: scalar(t, 'confirmed'), confirmed_by: scalar(t, 'confirmed_by'), reopened: scalar(t, 'reopened'), files, raw: t };
+  const files = {}; for (const m of t.matchAll(/^  ([^:\n]+\.(?:html|md|css)):\s*([0-9a-f]{64})\s*$/gm)) files[m[1]] = m[2];
+  const history = ((t.match(/^history:\n((?:  - [^\n]*\n?)*)/m) || [])[1] || '').split('\n').map((l) => l.replace(/^  - /, '')).filter(Boolean);
+  return { history, screen: scalar(t, 'screen'), title: scalar(t, 'title'), rev: Number(scalar(t, 'rev')) || 0, visual_status: scalar(t, 'visual_status'), confirmed: scalar(t, 'confirmed'), confirmed_by: scalar(t, 'confirmed_by'), reopened: scalar(t, 'reopened'), files, raw: t };
 }
-export function writeRevText({ screen, title, rev, visual_status, confirmed = '', confirmed_by = '', reopened = '', files = {}, note = '' }) {
-  const lines = ['# rev.yaml — 이 화면의 확정 스탬프 (정본). confirm.mjs가 쓴다 · 손 편집 금지. 확정 뒤 수정은 reopen → 고침 → confirm(rev+1)만.',
+export function writeRevText({ screen, title, rev, visual_status, confirmed = '', confirmed_by = '', reopened = '', files = {}, note = '', history = [] }) {
+  const lines = ['# rev.yaml — 이 화면의 확정 스탬프 (정본). confirm.mjs가 쓴다 · 손 편집 금지. 확정 뒤 수정은 reopen → 고침 → confirm(rev+1)만. history는 누적 — rev마다 무엇이 들어갔나.',
     `screen: ${screen}`, `title: "${title.replace(/"/g, '\\"')}"`, `rev: ${rev}`, `visual_status: ${visual_status}`, `confirmed: ${confirmed}`, `confirmed_by: "${confirmed_by}"`, `reopened: ${reopened}`, 'files:'];
   for (const f of Object.keys(files).sort()) lines.push(`  ${f}: ${files[f]}`);
+  if (history.length) lines.push('history:', ...history.map((h) => `  - ${h.replace(/\n/g, ' ')}`));
   if (note) lines.push('note: |', ...note.split('\n').map((l) => '  ' + l));
   return lines.join('\n') + '\n';
 }
 export const stateFiles = (dir) => readdirSync(dir).filter((f) => f.endsWith('.html')).sort();
-/** 확정 대상 = 상태 HTML 전수 + policy.md — 화면만 지문에 넣으면 정책이 rev 없이 바뀐다(같은 화면, 다른 규칙). 정책도 reopen → 고침 → confirm(rev+1) */
-export const confirmedFiles = (dir) => [...stateFiles(dir), ...(existsSync(join(dir, 'policy.md')) ? ['policy.md'] : [])];
+/** 확정 대상 = 상태 HTML 전수 + 폴더 안 CSS + policy.md — 화면만 지문에 넣으면 정책이 rev 없이 바뀌고, CSS를 빼면 렌더가 rev 없이 바뀐다. 셋 다 reopen → 고침 → confirm(rev+1) */
+export const confirmedFiles = (dir) => [...stateFiles(dir), ...readdirSync(dir).filter((f) => f.endsWith('.css')).sort(), ...(existsSync(join(dir, 'policy.md')) ? ['policy.md'] : [])];
 export const hashStates = (dir) => Object.fromEntries(confirmedFiles(dir).map((f) => [f, sha(readFileSync(join(dir, f)))]));
 
 /** 모든 화면 폴더 [{ id: "<모듈>/<화면>", path }] — rev.yaml이 있는 폴더 */

@@ -41,14 +41,14 @@ node scripts/new-screen.mjs <모듈> <화면> "<제목>"
 - **상태 하나 = 파일 하나** — `01-default.html` · `02-empty.html` · `03-error.html` · `04-modal-open.html` … 구현이 도달할 수 있는 화면 상태를 빠짐없이.
 - 마크업·클래스·`data-testid`는 개발이 **글자 그대로 옮긴다**. 공용 모양은 `screens/_assets/components.css`·`tokens.css`를 쓰고, 화면 고유 모양만 `_screen.css`에.
 - **예시 데이터는 고정값으로** — 오늘 날짜·"3분 전"·난수 금지. 이 값이 개발 쪽 대조의 기준 데이터가 된다.
-- `policy.md`에 목업이 그리지 못하는 것(상태 전이 · 버튼별 동작 · 권한 · 빈/오류 조건 · 한계값 · 움직임 · 문구)을 7절로. 답이 없는 것은 「미결」에 질문으로.
+- `policy.md`에 목업이 그리지 못하는 것(상태 전이 · 액션별 동작 · 권한 · 빈/오류 조건 · 한계값 · 동적 동작 · 문구)을 7절로 — 절 제목은 그대로 둔다. validate가 제목으로 검사한다. 답이 없는 것은 「미결」에 질문으로.
 - 커밋할 때마다 검사가 돈다: `node scripts/validate.mjs`로 미리 볼 수 있다.
 
 ### 2. 확정 — 사람이 서명한다
 
 ```bash
 node scripts/confirm.mjs <모듈>/<화면> --ready           # 확정 요청 (에이전트·기획자)
-node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"     # 확정 — rev+1, 상태 파일·policy.md마다 지문(해시) 기록
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>" --note "<이번 rev에 들어간 것>"   # 확정 — rev+1, 상태 파일·폴더 css·policy.md마다 지문(해시) 기록, history에 한 줄 누적
 ```
 
 - 확정 전 검사: 자산 참조가 열리는가 · 데이터가 고정값인가 · policy 7절이 있는가 — 하나라도 아니면 확정되지 않는다.
@@ -62,7 +62,7 @@ node scripts/confirm.mjs <모듈>/<화면> --reopen "<사유>"   # 고칠 수 �
 node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"      # 다시 확정 — rev+1
 ```
 
-`--reopen` 없이 확정된 html·policy.md를 고치면 커밋이 막힌다(정책도 지문 대상 — 화면만 잠그면 규칙이 rev 없이 바뀐다). rev가 오르면 개발 쪽에 재승격·재대조 작업이 생긴다 — 그래서 작은 수정도 rev를 올린다.
+`--reopen` 없이 확정된 html·css·policy.md를 고치면 커밋이 막힌다(정책·CSS도 지문 대상 — 화면만 잠그면 규칙과 렌더가 rev 없이 바뀐다). `--ready`도 그 시점의 지문을 고정한다 — 손 뗐다고 한 뒤 고치면 커밋이 막히고, 고쳤으면 `--ready`를 다시 한다(확정자는 자기가 본 파일을 확정한다). rev.yaml `history:`에 rev마다 무엇이 들어갔는지 쌓인다. rev가 오르면 개발 쪽에 재승격·재대조 작업이 생긴다 — 그래서 작은 수정도 rev를 올린다.
 
 ### 4. 검수자 — 테스트 서버에서 써 보고 접수
 
@@ -110,7 +110,7 @@ node scripts/qa.mjs reopen QA-… "<여전히 재현되는 이유>"
 | 명령 | 하는 일 |
 |---|---|
 | `scripts/new-screen.mjs <모듈> <화면> "<제목>"` | 화면 폴더 생성 |
-| `scripts/confirm.mjs <화면> --ready · --by · --reopen` | 확정 요청 · 확정(rev+1) · 재개 |
+| `scripts/confirm.mjs <화면> --ready · --by [--note] · --reopen` | 확정 요청(지문 고정) · 확정(rev+1 · history) · 재개 |
 | `scripts/qa.mjs new · classify · decide · change · close · reopen · index` | 검수 접수 · 분류 · 결정 · 반영 근거 · 닫기 · 재열림 · 현황 |
 | `scripts/validate.mjs` | 커밋 검사(pre-commit과 같음) |
 
@@ -138,7 +138,7 @@ new-screen → 상태 파일·policy 채움 → confirm --ready → (사람) con
 
 | 커밋 검사(validate) | 막는 것 |
 |---|---|
-| 확정본 불변 | 확정된 화면의 html이 기록된 지문과 다르면 거부 — 수정은 reopen → 다시 확정만 |
+| 확정본 불변 | 확정(confirmed)·요청(ready)된 화면의 html·css·policy.md가 기록된 지문과 다르면 거부 — 확정본 수정은 reopen → 다시 확정만, ready 뒤 수정은 `--ready` 다시 |
 | 자산 참조 | stylesheet·script·img·`url()`이 디스크에서 안 열리면 거부(모양 없는 목업) |
 | 고정 데이터 | 현재 시각·난수·상대 시각·오늘 날짜 — 확정·확정 요청 상태는 거부, 초안은 경고 |
 | 경계 | 개발 저장소 경로·기록 ID가 들어오면 거부 |
@@ -153,4 +153,4 @@ for s in scripts/*.mjs init.mjs; do node $s --self-test; done && node scripts/va
 
 ## 개정
 
-규칙이 바뀔 때마다 버전을 올리고 짝 템플릿(harnessC-template)과 같은 시점에 태그한다. 라이선스: 미정(비공개).
+규칙이 바뀔 때마다 버전을 올리고 짝 템플릿(harnessC-template)과 같은 시점에 태그한다. 라이선스: 아직 부여하지 않았다 — 공개 저장소이지만 LICENSE 파일이 없다. 사용·재배포 전에 문의.
