@@ -82,12 +82,12 @@ export const emptyPolicySections = (md) => POLICY_SECTIONS.filter((s) => { const
 /** §미결 표에서 개발을 막는데(영향 열에 "막음") 아직 열린(상태 열이 "닫힘·해결·결정"이 아닌) 행 — 이것이 있으면 확정하지 않는다(확정 뒤 개발이 착수했다가 재작업한다) */
 export function openBlockingIssues(md) {
   const sec = (md.split(/^##\s*미결[^\n]*$/m)[1] || '').split(/^## /m)[0];
-  return sec.split('\n').filter((l) => /^\|/.test(l) && !/^\|\s*-|^\|\s*#\s*\|/.test(l)).map((l) => l.split('|').map((c) => c.trim())).filter((c) => c.length >= 5 && /막음/.test(c[3]) && !/닫힘|해결|결정/.test(c[4])).map((c) => c[2]);
+  return sec.split('\n').filter((l) => /^\|/.test(l) && !/^\|\s*-|^\|\s*#\s*\|/.test(l)).map((l) => l.split('|').map((c) => c.trim())).filter((c) => c.length >= 5 && /막음/.test(c[3]) && !/^(닫힘|해결|결정)(?!\s*대기)/.test(c[4])).map((c) => c[2]);
 }
 /** 확정자 칸에 에이전트 모델명이 오면 거부 — 확정은 사람의 결정이다 */
 
 /** 시험용 — 7절을 "해당 없음"으로 채운다(빈 절은 확정 거부). 실제 기획은 절마다 규칙을 적는다 */
 export const fillPolicy = (dir) => { const p = join(dir, "policy.md"); const t = readFileSync(p, "utf8").replace(/^(##\s*\d\.\s*[^\n]+\n)(\([^)]*\)\n)?/gm, "$1해당 없음\n"); writeFileSync(p, t); };
-export const AGENT_NAME_RE = /claude|gpt|codex|gemini|opus|sonnet|haiku|fable|o[1-9]\b|llama|mistral|deepseek|agent|에이전트/i;
+export const AGENT_NAME_RE = /claude|gpt|codex|gemini|opus|sonnet|haiku|fable|\bo[1-9]\b|llama|mistral|deepseek|agent|에이전트/i;
 
 export { join, resolve, relative, existsSync, statSync, readdirSync };

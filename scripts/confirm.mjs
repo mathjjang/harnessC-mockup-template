@@ -54,10 +54,12 @@ if (process.argv.includes('--self-test') && /confirm.mjs$/.test(process.argv[1] 
   try {
     const s = create(tmp, 'm', 's', '제목');
     try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push('빈 절 확정 통과'); } catch (e) { if (!/절이 비어 있다/.test(e.message)) fails.push('빈 절 사유: ' + e.message); }
+    try { confirm(tmp, 'm/s', { by: 'Leo1' }); fails.push('빈 절인데 Leo1 통과'); } catch (e) { if (/에이전트 이름/.test(e.message)) fails.push('사람 이름 Leo1을 에이전트로 오판'); }   // o[1-9]는 낱말 경계 안에서만 — 거부 사유는 빈 절이어야 한다
     fillPolicy(s.path);
     writeFileSync(join(s.path, "policy.md"), rd(join(s.path, "policy.md")) + "| 1 | 결제 대행사? | 막음 | 열림 |\n");
     try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push('막는 미결 확정 통과'); } catch (e) { if (!/개발을 막는 열린 질문: 결제 대행사?/.test(e.message)) fails.push('막는 미결 사유: ' + e.message); }
-    writeFileSync(join(s.path, 'policy.md'), rd(join(s.path, 'policy.md')).replace('| 막음 | 열림 |', '| 막음 | 닫힘(토스) |'));
+    for (const st of ['미결정', '결정 대기', '미해결']) { writeFileSync(join(s.path, 'policy.md'), rd(join(s.path, 'policy.md')).replace(/\| 막음 \| [^|]*\|/, `| 막음 | ${st} |`)); try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push(`상태 "${st}"를 닫힘으로 봄`); } catch (e) { if (!/개발을 막는 열린 질문/.test(e.message)) fails.push(`상태 "${st}" 사유: ` + e.message); } }   // "미결정"·"결정 대기"는 열린 것 — 앞 글자 일치로 닫힘 오판 금지(리뷰 지적)
+    writeFileSync(join(s.path, 'policy.md'), rd(join(s.path, 'policy.md')).replace(/\| 막음 \| [^|]*\|/, '| 막음 | 닫힘(토스) |'));
     try { confirm(tmp, 'm/s', { by: 'claude-opus-5-5' }); fails.push('에이전트 이름 확정 통과'); } catch (e) { if (!/에이전트 이름으로는 확정하지 않는다/.test(e.message)) fails.push('에이전트 거부 사유: ' + e.message); }
     try { confirm(tmp, 'm/s', {}); fails.push('--by 없이 통과'); } catch { /* 기대 */ }
     writeFileSync(join(s.path, '02-empty.html'), '<html><head><link rel="stylesheet" href="./nope.css"></head><body>3분 전</body></html>');
