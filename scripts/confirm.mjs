@@ -7,7 +7,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config, existsSync, join, readRev, writeRevText, hashStates, today, rd, missingPolicySections, stateFiles, unresolvedAssets, nondeterminism } from './lib/mockup.mjs';
+import { config, existsSync, join, readRev, writeRevText, hashStates, today, rd, missingPolicySections, emptyPolicySections, fillPolicy, openBlockingIssues, AGENT_NAME_RE, stateFiles, unresolvedAssets, nondeterminism } from './lib/mockup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -17,7 +17,10 @@ export function preflight(dir) {
   const files = stateFiles(dir);
   if (!files.length) p.push('상태 파일(*.html)이 없다');
   for (const f of files) { const miss = unresolvedAssets(join(dir, f)); if (miss.length) p.push(`${f}: 자산 참조가 열리지 않는다 — ${miss.join(', ')}`); for (const n of nondeterminism(rd(join(dir, f)))) p.push(`${f}: ${n}`); }
-  const ms = missingPolicySections(rd(join(dir, 'policy.md'))); if (ms.length) p.push(`policy.md 절 누락: ${ms.join('·')}`);
+  const pol = rd(join(dir, 'policy.md'));
+  const ms = missingPolicySections(pol); if (ms.length) p.push(`policy.md 절 누락: ${ms.join('·')}`);
+  const es = emptyPolicySections(pol); if (es.length) p.push(`policy.md 절이 비어 있다: ${es.join('·')} — 정한 것이 없으면 "해당 없음"이라 적는다(비워 둔 것과 없다고 정한 것은 다르다)`);
+  const ob = openBlockingIssues(pol); if (ob.length) p.push(`§미결에 개발을 막는 열린 질문: ${ob.join(' / ')} — 닫거나(상태: 닫힘) 영향을 "막음"이 아닌 것으로 고친 뒤 확정`);
   return p;
 }
 
@@ -31,6 +34,7 @@ export function confirm(root, id, { by, reopen, ready, note = '' } = {}) {
   }
   if (ready) { writeFileSync(join(dir, 'rev.yaml'), writeRevText({ ...rev, visual_status: 'ready', files: hashStates(dir) })); return { id, rev: rev.rev, visual_status: 'ready', files: Object.keys(hashStates(dir)).length }; }   // 손 뗌 선언 = 이 시점의 지문 고정. 선언 뒤 고치면 validate가 막는다(고쳤으면 --ready 다시). 확정자는 자기가 본 그 파일을 확정한다
   if (!by) throw new Error('--by "<확정자>"가 필요하다 — 확정은 사람의 결정이다');
+  if (AGENT_NAME_RE.test(by)) throw new Error(`--by "${by}" — 에이전트 이름으로는 확정하지 않는다. 확정은 사람의 결정이다; 사람 이름으로`);
   const problems = preflight(dir); if (problems.length) throw new Error(`확정 불가 — 먼저 고친다:\n- ${problems.join('\n- ')}`);
   if (rev.visual_status === 'ready') {   // 확정자는 ready 선언 때 본 그 파일을 확정한다 — 선언 뒤 바뀐 파일을 재해시해 확정하면 '본 것'과 '확정된 것'이 갈린다
     const now = hashStates(dir); const diff = [...new Set([...Object.keys(rev.files), ...Object.keys(now)])].filter((f) => rev.files[f] !== now[f]);
@@ -49,6 +53,12 @@ if (process.argv.includes('--self-test') && /confirm.mjs$/.test(process.argv[1] 
   const fails = [];
   try {
     const s = create(tmp, 'm', 's', '제목');
+    try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push('빈 절 확정 통과'); } catch (e) { if (!/절이 비어 있다/.test(e.message)) fails.push('빈 절 사유: ' + e.message); }
+    fillPolicy(s.path);
+    writeFileSync(join(s.path, "policy.md"), rd(join(s.path, "policy.md")) + "| 1 | 결제 대행사? | 막음 | 열림 |\n");
+    try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push('막는 미결 확정 통과'); } catch (e) { if (!/개발을 막는 열린 질문: 결제 대행사?/.test(e.message)) fails.push('막는 미결 사유: ' + e.message); }
+    writeFileSync(join(s.path, 'policy.md'), rd(join(s.path, 'policy.md')).replace('| 막음 | 열림 |', '| 막음 | 닫힘(토스) |'));
+    try { confirm(tmp, 'm/s', { by: 'claude-opus-5-5' }); fails.push('에이전트 이름 확정 통과'); } catch (e) { if (!/에이전트 이름으로는 확정하지 않는다/.test(e.message)) fails.push('에이전트 거부 사유: ' + e.message); }
     try { confirm(tmp, 'm/s', {}); fails.push('--by 없이 통과'); } catch { /* 기대 */ }
     writeFileSync(join(s.path, '02-empty.html'), '<html><head><link rel="stylesheet" href="./nope.css"></head><body>3분 전</body></html>');
     try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push('자산 미해석·비결정 통과'); } catch (e) { if (!/nope\.css/.test(e.message) || !/분 전/.test(e.message)) fails.push('preflight 사유 누락: ' + e.message); }
@@ -69,7 +79,7 @@ if (process.argv.includes('--self-test') && /confirm.mjs$/.test(process.argv[1] 
     try { confirm(tmp, 'm/none', { by: 'cto' }); fails.push('없는 화면 통과'); } catch { /* 기대 */ }
   } catch (e) { fails.push('예외: ' + e.message); }
   rmSync(tmp, { recursive: true, force: true });
-  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (preflight 거부 · 확정 rev1→2(html·css·policy 지문) · ready 지문 고정·선언 뒤 변경 확정 거부 · history 누적·note · reopen · 거부 3)');
+  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (preflight 거부 · 빈 절·막는 미결·에이전트 이름 거부 · 확정 rev1→2(html·css·policy 지문) · ready 지문 고정·선언 뒤 변경 확정 거부 · history 누적·note · reopen · 거부 3)');
   process.exit(fails.length ? 1 : 0);
 }
 if (process.argv[1] && /confirm\.mjs$/.test(process.argv[1]) && !process.argv.includes('--self-test')) {

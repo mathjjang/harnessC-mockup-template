@@ -1,6 +1,6 @@
 // mockup.mjs — 목업 저장소 공용 라이브러리 (new-screen · confirm · validate가 공유). 프로젝트 지식 없음.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 
 export const STATUSES = ['draft', 'ready', 'confirmed', 'reopened'];
@@ -77,5 +77,17 @@ export function nondeterminism(html) {
 }
 /** policy.md의 고정 7절 중 빠진 것 */
 export const missingPolicySections = (md) => POLICY_SECTIONS.filter((s) => !new RegExp(`^##\\s*\\d*\\.?\\s*${s.replace(/[/]/g, '\\/')}`, 'm').test(md));
+/** 7절 중 본문이 빈 것 — 제목만 있는 절은 "정한 것이 없다"가 아니라 "안 적었다"다. "해당 없음" 한 줄은 정한 것이므로 통과 */
+export const emptyPolicySections = (md) => POLICY_SECTIONS.filter((s) => { const m = md.match(new RegExp(`^##\\s*\\d*\\.?\\s*${s.replace(/[/]/g, '\\/')}[^\\n]*\\n([\\s\\S]*?)(?=^##\\s|(?![\\s\\S]))`, 'm')); return m && !m[1].replace(/\([^)]*\)/g, '').trim(); });
+/** §미결 표에서 개발을 막는데(영향 열에 "막음") 아직 열린(상태 열이 "닫힘·해결·결정"이 아닌) 행 — 이것이 있으면 확정하지 않는다(확정 뒤 개발이 착수했다가 재작업한다) */
+export function openBlockingIssues(md) {
+  const sec = (md.split(/^##\s*미결[^\n]*$/m)[1] || '').split(/^## /m)[0];
+  return sec.split('\n').filter((l) => /^\|/.test(l) && !/^\|\s*-|^\|\s*#\s*\|/.test(l)).map((l) => l.split('|').map((c) => c.trim())).filter((c) => c.length >= 5 && /막음/.test(c[3]) && !/닫힘|해결|결정/.test(c[4])).map((c) => c[2]);
+}
+/** 확정자 칸에 에이전트 모델명이 오면 거부 — 확정은 사람의 결정이다 */
+
+/** 시험용 — 7절을 "해당 없음"으로 채운다(빈 절은 확정 거부). 실제 기획은 절마다 규칙을 적는다 */
+export const fillPolicy = (dir) => { const p = join(dir, "policy.md"); const t = readFileSync(p, "utf8").replace(/^(##\s*\d\.\s*[^\n]+\n)(\([^)]*\)\n)?/gm, "$1해당 없음\n"); writeFileSync(p, t); };
+export const AGENT_NAME_RE = /claude|gpt|codex|gemini|opus|sonnet|haiku|fable|o[1-9]\b|llama|mistral|deepseek|agent|에이전트/i;
 
 export { join, resolve, relative, existsSync, statSync, readdirSync };

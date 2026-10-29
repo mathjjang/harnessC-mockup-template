@@ -6,7 +6,7 @@
 // 검사하지 않는 것: 디자인의 타당성·요구사항 일치 — 사람 확정의 몫. --self-test: 위반 표본에서 각 검사가 잡히는지.
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config, existsSync, join, readdirSync, readRev, rd, sha, confirmedFiles, STATUSES, STATE_RE, stateFiles, unresolvedAssets, nondeterminism, missingPolicySections, listScreens, posix, relative } from './lib/mockup.mjs';
+import { config, existsSync, join, readdirSync, readRev, rd, sha, confirmedFiles, fillPolicy, STATUSES, STATE_RE, stateFiles, unresolvedAssets, nondeterminism, missingPolicySections, listScreens, posix, relative } from './lib/mockup.mjs';
 import { readFileSync } from 'node:fs';
 import { validateQa } from './qa.mjs';
 
@@ -53,12 +53,12 @@ if (process.argv.includes('--self-test')) {
   writeFileSync(join(tmp, 'mockup.yaml'), 'project: t\n'); mkdirSync(join(tmp, 'screens', '_assets'), { recursive: true }); writeFileSync(join(tmp, 'screens', '_assets', 'tokens.css'), ''); writeFileSync(join(tmp, 'screens', '_assets', 'components.css'), '');
   const fails = [];
   try {
-    const ok = create(tmp, 'm', 'ok', 'OK'); confirm(tmp, 'm/ok', { by: 'cto' });
-    const tam = create(tmp, 'm', 'tampered', 'T'); confirm(tmp, 'm/tampered', { by: 'cto' }); writeFileSync(join(tam.path, '01-default.html'), rd(join(tam.path, '01-default.html')) + '<!-- 몰래 -->');
-    const pol = create(tmp, 'm', 'poltamper', 'P'); confirm(tmp, 'm/poltamper', { by: 'cto' }); writeFileSync(join(pol.path, 'policy.md'), rd(join(pol.path, 'policy.md')) + '\n- 규칙 하나 더\n');   // 정책만 고침 — 화면은 그대로
-    const css = create(tmp, 'm', 'csstamper', 'S'); confirm(tmp, 'm/csstamper', { by: 'cto' }); writeFileSync(join(css.path, '_screen.css'), rd(join(css.path, '_screen.css')) + '\n/* 몰래 */\n');   // CSS만 고침 — 렌더가 rev 없이 바뀐다
-    const rdy = create(tmp, 'm', 'readytamper', 'R'); confirm(tmp, 'm/readytamper', { ready: true }); writeFileSync(join(rdy.path, '01-default.html'), rd(join(rdy.path, '01-default.html')) + '<!-- ready 뒤 -->');   // 손 뗌 선언 뒤 고침
-    const crlf = create(tmp, 'm', 'crlf', 'C'); confirm(tmp, 'm/crlf', { by: 'cto' }); writeFileSync(join(crlf.path, '01-default.html'), rd(join(crlf.path, '01-default.html')).replace(/\n/g, '\r\n'));   // 개행만 바뀜 — 같은 내용(거짓 경보 금지)
+    const ok = create(tmp, 'm', 'ok', 'OK'); fillPolicy(ok.path); confirm(tmp, 'm/ok', { by: 'cto' });
+    const tam = create(tmp, 'm', 'tampered', 'T'); fillPolicy(tam.path); confirm(tmp, 'm/tampered', { by: 'cto' }); writeFileSync(join(tam.path, '01-default.html'), rd(join(tam.path, '01-default.html')) + '<!-- 몰래 -->');
+    const pol = create(tmp, 'm', 'poltamper', 'P'); fillPolicy(pol.path); confirm(tmp, 'm/poltamper', { by: 'cto' }); writeFileSync(join(pol.path, 'policy.md'), rd(join(pol.path, 'policy.md')) + '\n- 규칙 하나 더\n');   // 정책만 고침 — 화면은 그대로
+    const css = create(tmp, 'm', 'csstamper', 'S'); fillPolicy(css.path); confirm(tmp, 'm/csstamper', { by: 'cto' }); writeFileSync(join(css.path, '_screen.css'), rd(join(css.path, '_screen.css')) + '\n/* 몰래 */\n');   // CSS만 고침 — 렌더가 rev 없이 바뀐다
+    const rdy = create(tmp, 'm', 'readytamper', 'R'); fillPolicy(rdy.path); confirm(tmp, 'm/readytamper', { ready: true }); writeFileSync(join(rdy.path, '01-default.html'), rd(join(rdy.path, '01-default.html')) + '<!-- ready 뒤 -->');   // 손 뗌 선언 뒤 고침
+    const crlf = create(tmp, 'm', 'crlf', 'C'); fillPolicy(crlf.path); confirm(tmp, 'm/crlf', { by: 'cto' }); writeFileSync(join(crlf.path, '01-default.html'), rd(join(crlf.path, '01-default.html')).replace(/\n/g, '\r\n'));   // 개행만 바뀜 — 같은 내용(거짓 경보 금지)
     const dr = create(tmp, 'm', 'draft', 'D'); writeFileSync(join(dr.path, '02-x.html'), '<html><body>3분 전 <!-- FDR-261017-x --></body></html>'); writeFileSync(join(dr.path, 'bad name.html'), '<html></html>'); writeFileSync(join(dr.path, '03-nocss.html'), '<html><head><link rel="stylesheet" href="./missing.css"></head></html>');
     mkdirSync(join(tmp, 'screens', 'm', 'norev'), { recursive: true }); writeFileSync(join(tmp, 'screens', 'm', 'norev', '01-a.html'), '<html></html>');
     const bad = create(tmp, 'm', 'badstatus', 'B'); writeFileSync(join(bad.path, 'rev.yaml'), rd(join(bad.path, 'rev.yaml')).replace('visual_status: draft', 'visual_status: done'));
