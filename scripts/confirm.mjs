@@ -3,7 +3,7 @@
 // 사용: node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"            확정 (validate 통과가 전제 — 실패하면 확정하지 않는다)
 //       node scripts/confirm.mjs <모듈>/<화면> --reopen "<사유>"          확정본을 고치기 위해 연다(visual_status: reopened). 고친 뒤 다시 confirm → rev+1
 //       node scripts/confirm.mjs <모듈>/<화면> --ready                     사람 확정 요청 상태(ready)로 표시
-// 확정된 화면의 html을 reopen 없이 고치면 validate(pre-commit)가 막는다 — "확정 후 수정은 rev+1 재확정만".
+// 확정된 화면의 html·policy.md를 reopen 없이 고치면 validate(pre-commit)가 막는다 — "확정 후 수정은 rev+1 재확정만". 정책도 지문 대상 — 화면만 잠그면 규칙이 rev 없이 바뀐다.
 import { writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +50,7 @@ if (process.argv.includes('--self-test') && /confirm.mjs$/.test(process.argv[1] 
     try { confirm(tmp, 'm/s', { by: 'cto' }); fails.push('자산 미해석·비결정 통과'); } catch (e) { if (!/nope\.css/.test(e.message) || !/분 전/.test(e.message)) fails.push('preflight 사유 누락: ' + e.message); }
     writeFileSync(join(s.path, '02-empty.html'), '<html><head><link rel="stylesheet" href="../../_assets/tokens.css"></head><body>2026-01-01</body></html>');
     const c = confirm(tmp, 'm/s', { by: 'cto' }); const r1 = readRev(s.path);
-    if (c.rev !== 1 || r1.visual_status !== 'confirmed' || r1.confirmed_by !== 'cto' || Object.keys(r1.files).length !== 2) fails.push('확정 rev1');
+    if (c.rev !== 1 || r1.visual_status !== 'confirmed' || r1.confirmed_by !== 'cto' || Object.keys(r1.files).length !== 3 || !r1.files['policy.md']) fails.push('확정 rev1(html 2 + policy.md)');
     try { confirm(tmp, 'm/s', { ready: true }); } catch { fails.push('ready 전환'); }
     confirm(tmp, 'm/s', { by: 'cto' }); if (readRev(s.path).rev !== 2) fails.push('재확정 rev2');
     try { confirm(tmp, 'm/s', { reopen: 'x' }); } catch (e) { fails.push('reopen: ' + e.message); }

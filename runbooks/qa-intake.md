@@ -41,7 +41,7 @@ node scripts/qa.mjs classify <ID> <유형> "<근거 — 캡처 속 URL·콘솔 �
 |---|---|---|
 | `오류` | **개발 저장소**가 가져간다(`qa-intake.mjs pull`) → 고침 → 리뷰어(수정자와 다른 세션)가 `resolution.md`를 `verified`로 | 기획이 테스트 서버에서 확인 후 `close`. resolution이 resolved·verified가 아니면 닫히지 않는다 |
 | `기획수정(UI)` | **이 저장소**: `confirm.mjs <화면> --reopen` → 고침 → `confirm`(rev+1) → `qa.mjs change <ID> "<모듈>/<화면> rev N"` → 개발이 재승격·재구현 | 반영 근거(change) 없이는 닫히지 않는다 |
-| `기획수정(정책)` | **이 저장소**: policy.md 개정 → `qa.mjs change <ID> "policy.md <날짜> 개정"` → 개발 발주 | 같음 |
+| `기획수정(정책)` | **이 저장소**: `confirm.mjs <화면> --reopen` → policy.md 개정 → `confirm`(rev+1) → `qa.mjs change <ID> "<모듈>/<화면> rev N"` → 개발이 재승격·재구현 (정책도 지문 대상 — 화면만 잠그면 규칙이 rev 없이 바뀐다) | 같음 |
 | `정책공백` | 사람 결정 → `qa.mjs decide <ID> "<결정>"` → 결정에 따라 다시 classify | 결정 없이는 닫히지 않는다 |
 
 ## 4. 닫기·재열림 — 사람만

@@ -94,7 +94,7 @@ export function classify(root, id, type, basis, { by = '(이름 없음)' } = {})
   t = setField(setField(setField(t, 'type', type), 'classified_by', by), 'basis', basis);
   t = t.replace(/## 분류 근거\n/, `## 분류 근거\n\n- ${today()} · ${by} · **${type}** — ${basis}\n`);
   save(q, log(t, `분류 ${type} (${by})`));
-  const route = { '오류': '개발 저장소가 가져간다(qa-intake.mjs pull) — 고치고 리뷰어가 verified로 올리면 기획이 테스트 서버에서 확인 후 close', '기획수정(UI)': '이 저장소에서 목업 reopen → 고침 → confirm(rev+1) → qa.mjs change <ID> "<모듈>/<화면> rev N" → 개발이 재승격·구현 → close', '기획수정(정책)': 'policy.md 개정 → qa.mjs change <ID> "policy.md <날짜> 개정" → 개발 발주 → close', '정책공백': '사람 결정을 기다린다 → qa.mjs decide <ID> "<결정>" → 결정에 따라 다시 classify' }[type];
+  const route = { '오류': '개발 저장소가 가져간다(qa-intake.mjs pull) — 고치고 리뷰어가 verified로 올리면 기획이 테스트 서버에서 확인 후 close', '기획수정(UI)': '이 저장소에서 목업 reopen → 고침 → confirm(rev+1) → qa.mjs change <ID> "<모듈>/<화면> rev N" → 개발이 재승격·구현 → close', '기획수정(정책)': '이 저장소에서 목업 reopen → policy.md 개정 → confirm(rev+1) → qa.mjs change <ID> "<모듈>/<화면> rev N" → 개발이 재승격·구현 → close', '정책공백': '사람 결정을 기다린다 → qa.mjs decide <ID> "<결정>" → 결정에 따라 다시 classify' }[type];
   return { id, type, next: route };
 }
 export function decide(root, id, decision) { const q = find(root, id); if (field(q.report, 'type') !== '정책공백') throw new Error(`${id}는 정책공백이 아니다(${field(q.report, 'type')})`); if (!decision) throw new Error('결정 내용이 필요하다'); let t = setField(q.report, 'decision', decision); t = t.replace(/## 결정 \(정책공백일 때 — 사람\)\n/, `## 결정 (정책공백일 때 — 사람)\n\n- ${today()} · ${decision}\n`); save(q, log(t, `결정: ${decision}`)); return { id }; }

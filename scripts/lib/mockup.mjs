@@ -7,7 +7,10 @@ export const STATUSES = ['draft', 'ready', 'confirmed', 'reopened'];
 export const STATE_RE = /^\d{2}-[a-z0-9][a-z0-9-]*\.html$/;           // 01-default.html
 export const POLICY_SECTIONS = ['상태 전이', '액션별 동작', '권한', '빈/오류 조건', '한계값', '동적 동작', '문구'];
 export const rd = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
-export const sha = (buf) => createHash('sha256').update(buf).digest('hex');
+/** 지문(해시) — 텍스트는 CRLF→LF 정규화 뒤, 바이너리(NUL 포함)는 바이트 그대로. 저장소가 eol=lf라 git은 LF로 저장하는데 Windows에서 CRLF로 쓴 작업트리를 그대로 해시하면
+ *  커밋 뒤 영원히 재현되지 않아 같은 내용에 「확정 뒤 수정」 거짓 경보가 난다. 거짓 경보는 게이트를 죽인다. 읽는 쪽(개발 저장소 mockup-diff.mjs)과 같은 규약 — 한쪽만 바꾸면 사고 */
+export const isBinary = (buf) => { const n = Math.min(buf.length, 8000); for (let i = 0; i < n; i += 1) if (buf[i] === 0) return true; return false; };
+export const sha = (buf) => createHash('sha256').update(Buffer.isBuffer(buf) && isBinary(buf) ? buf : Buffer.from(String(buf).replace(/\r\n/g, '\n'), 'utf8')).digest('hex');
 export const posix = (p) => p.split('\\').join('/');
 export const today = () => new Date().toISOString().slice(0, 10);
 const scalar = (t, k) => ((t.match(new RegExp(`^${k}:\\s*([^#\\n]*?)\\s*(#.*)?$`, 'm')) || [])[1] || '').trim().replace(/^["']|["']$/g, '');
@@ -20,7 +23,7 @@ export function config(root) {
 /** rev.yaml 읽기 — { screen, title, rev, visual_status, confirmed, confirmed_by, files{html: sha}, raw } */
 export function readRev(dir) {
   const t = rd(join(dir, 'rev.yaml')); if (!t) return null;
-  const files = {}; for (const m of t.matchAll(/^  ([^:\n]+\.html):\s*([0-9a-f]{64})\s*$/gm)) files[m[1]] = m[2];
+  const files = {}; for (const m of t.matchAll(/^  ([^:\n]+\.(?:html|md)):\s*([0-9a-f]{64})\s*$/gm)) files[m[1]] = m[2];
   return { screen: scalar(t, 'screen'), title: scalar(t, 'title'), rev: Number(scalar(t, 'rev')) || 0, visual_status: scalar(t, 'visual_status'), confirmed: scalar(t, 'confirmed'), confirmed_by: scalar(t, 'confirmed_by'), reopened: scalar(t, 'reopened'), files, raw: t };
 }
 export function writeRevText({ screen, title, rev, visual_status, confirmed = '', confirmed_by = '', reopened = '', files = {}, note = '' }) {
@@ -31,7 +34,9 @@ export function writeRevText({ screen, title, rev, visual_status, confirmed = ''
   return lines.join('\n') + '\n';
 }
 export const stateFiles = (dir) => readdirSync(dir).filter((f) => f.endsWith('.html')).sort();
-export const hashStates = (dir) => Object.fromEntries(stateFiles(dir).map((f) => [f, sha(readFileSync(join(dir, f)))]));
+/** 확정 대상 = 상태 HTML 전수 + policy.md — 화면만 지문에 넣으면 정책이 rev 없이 바뀐다(같은 화면, 다른 규칙). 정책도 reopen → 고침 → confirm(rev+1) */
+export const confirmedFiles = (dir) => [...stateFiles(dir), ...(existsSync(join(dir, 'policy.md')) ? ['policy.md'] : [])];
+export const hashStates = (dir) => Object.fromEntries(confirmedFiles(dir).map((f) => [f, sha(readFileSync(join(dir, f)))]));
 
 /** 모든 화면 폴더 [{ id: "<모듈>/<화면>", path }] — rev.yaml이 있는 폴더 */
 export function listScreens(root) {

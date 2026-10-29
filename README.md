@@ -48,7 +48,7 @@ node scripts/new-screen.mjs <모듈> <화면> "<제목>"
 
 ```bash
 node scripts/confirm.mjs <모듈>/<화면> --ready           # 확정 요청 (에이전트·기획자)
-node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"     # 확정 — rev+1, 상태 파일마다 지문(해시) 기록
+node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"     # 확정 — rev+1, 상태 파일·policy.md마다 지문(해시) 기록
 ```
 
 - 확정 전 검사: 자산 참조가 열리는가 · 데이터가 고정값인가 · policy 7절이 있는가 — 하나라도 아니면 확정되지 않는다.
@@ -62,7 +62,7 @@ node scripts/confirm.mjs <모듈>/<화면> --reopen "<사유>"   # 고칠 수 �
 node scripts/confirm.mjs <모듈>/<화면> --by "<확정자>"      # 다시 확정 — rev+1
 ```
 
-`--reopen` 없이 확정된 html을 고치면 커밋이 막힌다. rev가 오르면 개발 쪽에 재승격·재대조 작업이 생긴다 — 그래서 작은 수정도 rev를 올린다.
+`--reopen` 없이 확정된 html·policy.md를 고치면 커밋이 막힌다(정책도 지문 대상 — 화면만 잠그면 규칙이 rev 없이 바뀐다). rev가 오르면 개발 쪽에 재승격·재대조 작업이 생긴다 — 그래서 작은 수정도 rev를 올린다.
 
 ### 4. 검수자 — 테스트 서버에서 써 보고 접수
 
@@ -91,7 +91,7 @@ node scripts/qa.mjs classify QA-… <유형> "<근거 — 캡처 속 주소·콘
 |---|---|---|
 | 오류 | 개발 저장소가 가져가 고치고, 다른 사람(리뷰어)이 확인해 `qa/<ID>/resolution.md`에 회신 | 회신이 resolved·verified + 기획의 확인 |
 | 기획수정(UI) | 여기서: `--reopen` → 고침 → 다시 확정 → `node scripts/qa.mjs change QA-… "<모듈>/<화면> rev N"` | 반영 근거(change) 필수 |
-| 기획수정(정책) | 여기서: policy.md 개정 → `qa.mjs change QA-… "policy.md <날짜> 개정"` | 반영 근거 필수 |
+| 기획수정(정책) | 여기서: `--reopen` → policy.md 개정 → 다시 확정 → `qa.mjs change QA-… "<모듈>/<화면> rev N"` | 반영 근거(change) 필수 |
 | 정책공백 | 사람이 결정 → `node scripts/qa.mjs decide QA-… "<결정>"` → 다시 분류 | 결정 필수 |
 
 기획수정을 개발로 보내지 않는다 — 기획 없이 화면·정책이 코드에서 바뀌는 것을 막는 장치다. 오류와 바꾸고 싶은 것이 섞인 건은 둘로 나눠 접수한다.
