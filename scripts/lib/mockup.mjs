@@ -25,12 +25,13 @@ export function readRev(dir) {
   const t = rd(join(dir, 'rev.yaml')); if (!t) return null;
   const files = {}; for (const m of t.matchAll(/^  ([^:\n]+\.(?:html|md|css)):\s*([0-9a-f]{64})\s*$/gm)) files[m[1]] = m[2];
   const history = ((t.match(/^history:\n((?:  - [^\n]*\n?)*)/m) || [])[1] || '').split('\n').map((l) => l.replace(/^  - /, '')).filter(Boolean);
-  return { history, screen: scalar(t, 'screen'), title: scalar(t, 'title'), rev: Number(scalar(t, 'rev')) || 0, visual_status: scalar(t, 'visual_status'), confirmed: scalar(t, 'confirmed'), confirmed_by: scalar(t, 'confirmed_by'), reopened: scalar(t, 'reopened'), files, raw: t };
+  return { history, screen: scalar(t, 'screen'), title: scalar(t, 'title'), rev: Number(scalar(t, 'rev')) || 0, visual_status: scalar(t, 'visual_status'), confirmed: scalar(t, 'confirmed'), confirmed_by: scalar(t, 'confirmed_by'), reopened: scalar(t, 'reopened'), assets_sha: scalar(t, 'assets_sha'), files, raw: t };
 }
-export function writeRevText({ screen, title, rev, visual_status, confirmed = '', confirmed_by = '', reopened = '', files = {}, note = '', history = [] }) {
+export function writeRevText({ screen, title, rev, visual_status, confirmed = '', confirmed_by = '', reopened = '', files = {}, note = '', history = [], assets_sha = '' }) {
   const lines = ['# rev.yaml — 이 화면의 확정 스탬프 (정본). confirm.mjs가 쓴다 · 손 편집 금지. 확정 뒤 수정은 reopen → 고침 → confirm(rev+1)만. history는 누적 — rev마다 무엇이 들어갔나.',
     `screen: ${screen}`, `title: "${title.replace(/"/g, '\\"')}"`, `rev: ${rev}`, `visual_status: ${visual_status}`, `confirmed: ${confirmed}`, `confirmed_by: "${confirmed_by}"`, `reopened: ${reopened}`, 'files:'];
   for (const f of Object.keys(files).sort()) lines.push(`  ${f}: ${files[f]}`);
+  if (assets_sha) lines.push(`assets_sha: ${assets_sha}`);
   if (history.length) lines.push('history:', ...history.map((h) => `  - ${h.replace(/\n/g, ' ')}`));
   if (note) lines.push('note: |', ...note.split('\n').map((l) => '  ' + l));
   return lines.join('\n') + '\n';
@@ -39,6 +40,13 @@ export const stateFiles = (dir) => readdirSync(dir).filter((f) => f.endsWith('.h
 /** 확정 대상 = 상태 HTML 전수 + 폴더 안 CSS + policy.md — 화면만 지문에 넣으면 정책이 rev 없이 바뀌고, CSS를 빼면 렌더가 rev 없이 바뀐다. 셋 다 reopen → 고침 → confirm(rev+1) */
 export const confirmedFiles = (dir) => [...stateFiles(dir), ...readdirSync(dir).filter((f) => f.endsWith('.css')).sort(), ...(existsSync(join(dir, 'policy.md')) ? ['policy.md'] : [])];
 export const hashStates = (dir) => Object.fromEntries(confirmedFiles(dir).map((f) => [f, sha(readFileSync(join(dir, f)))]));
+/** 공용 자산(screens/_assets/**) 묶음 지문 — 경로(정렬)+내용. 토큰 한 줄이 바뀌면 확정된 모든 화면의 렌더가 바뀌는데 아무 경보가 없었다(RFC-261029 P4). 확정 때 기록하고 validate가 대조한다 */
+export function assetsSha(root) {
+  const base = join(root, config(root).screensDir, '_assets'); if (!existsSync(base)) return '';
+  const out = []; const walk = (d, rel) => { for (const e of readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) { const p = join(d, e.name), r = `${rel}/${e.name}`; if (e.isDirectory()) walk(p, r); else out.push(`${r}:${sha(readFileSync(p))}`); } };
+  walk(base, '_assets');
+  return sha(out.join('\n'));
+}
 
 /** 모든 화면 폴더 [{ id: "<모듈>/<화면>", path }] — rev.yaml이 있는 폴더 */
 export function listScreens(root) {

@@ -7,7 +7,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config, existsSync, join, readRev, writeRevText, hashStates, today, rd, missingPolicySections, emptyPolicySections, fillPolicy, openBlockingIssues, AGENT_NAME_RE, stateFiles, unresolvedAssets, nondeterminism } from './lib/mockup.mjs';
+import { config, existsSync, join, readRev, writeRevText, hashStates, today, rd, missingPolicySections, emptyPolicySections, fillPolicy, assetsSha, openBlockingIssues, AGENT_NAME_RE, stateFiles, unresolvedAssets, nondeterminism } from './lib/mockup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -32,7 +32,7 @@ export function confirm(root, id, { by, reopen, ready, note = '' } = {}) {
     writeFileSync(join(dir, 'rev.yaml'), writeRevText({ ...rev, visual_status: 'reopened', reopened: today(), note: `rev ${rev.rev} 재개: ${reopen}`, history: [...rev.history, `rev ${rev.rev} reopened ${today()} — ${reopen}`] }));
     return { id, rev: rev.rev, visual_status: 'reopened' };
   }
-  if (ready) { writeFileSync(join(dir, 'rev.yaml'), writeRevText({ ...rev, visual_status: 'ready', files: hashStates(dir) })); return { id, rev: rev.rev, visual_status: 'ready', files: Object.keys(hashStates(dir)).length }; }   // 손 뗌 선언 = 이 시점의 지문 고정. 선언 뒤 고치면 validate가 막는다(고쳤으면 --ready 다시). 확정자는 자기가 본 그 파일을 확정한다
+  if (ready) { writeFileSync(join(dir, 'rev.yaml'), writeRevText({ ...rev, visual_status: 'ready', files: hashStates(dir), assets_sha: assetsSha(root) })); return { id, rev: rev.rev, visual_status: 'ready', files: Object.keys(hashStates(dir)).length }; }   // 손 뗌 선언 = 이 시점의 지문 고정. 선언 뒤 고치면 validate가 막는다(고쳤으면 --ready 다시). 확정자는 자기가 본 그 파일을 확정한다
   if (!by) throw new Error('--by "<확정자>"가 필요하다 — 확정은 사람의 결정이다');
   if (AGENT_NAME_RE.test(by)) throw new Error(`--by "${by}" — 에이전트 이름으로는 확정하지 않는다. 확정은 사람의 결정이다; 사람 이름으로`);
   const problems = preflight(dir); if (problems.length) throw new Error(`확정 불가 — 먼저 고친다:\n- ${problems.join('\n- ')}`);
@@ -41,7 +41,7 @@ export function confirm(root, id, { by, reopen, ready, note = '' } = {}) {
     if (diff.length) throw new Error(`확정 불가 — ready 선언 뒤 바뀐 파일: ${diff.join(', ')}. 담당자가 confirm.mjs --ready를 다시 해서 지문을 고정한 뒤 확정`);
   }
   const next = rev.rev + 1;
-  writeFileSync(join(dir, 'rev.yaml'), writeRevText({ screen: rev.screen, title: rev.title, rev: next, visual_status: 'confirmed', confirmed: today(), confirmed_by: by, files: hashStates(dir), history: [...rev.history, `rev ${next} confirmed ${today()} ${by}${note ? ' — ' + note : ''}`] }));
+  writeFileSync(join(dir, 'rev.yaml'), writeRevText({ screen: rev.screen, title: rev.title, rev: next, visual_status: 'confirmed', confirmed: today(), confirmed_by: by, files: hashStates(dir), assets_sha: assetsSha(root), history: [...rev.history, `rev ${next} confirmed ${today()} ${by}${note ? ' — ' + note : ''}`] }));
   return { id, rev: next, visual_status: 'confirmed', files: Object.keys(hashStates(dir)).length };
 }
 

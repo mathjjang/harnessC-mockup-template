@@ -6,7 +6,7 @@
 // 검사하지 않는 것: 디자인의 타당성·요구사항 일치 — 사람 확정의 몫. --self-test: 위반 표본에서 각 검사가 잡히는지.
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config, existsSync, join, readdirSync, readRev, rd, sha, confirmedFiles, fillPolicy, STATUSES, STATE_RE, stateFiles, unresolvedAssets, nondeterminism, missingPolicySections, listScreens, posix, relative } from './lib/mockup.mjs';
+import { config, existsSync, join, readdirSync, readRev, rd, sha, confirmedFiles, fillPolicy, assetsSha, STATUSES, STATE_RE, stateFiles, unresolvedAssets, nondeterminism, missingPolicySections, listScreens, posix, relative } from './lib/mockup.mjs';
 import { readFileSync } from 'node:fs';
 import { validateQa } from './qa.mjs';
 
@@ -17,6 +17,7 @@ export function validate(root) {
   const problems = [], warnings = [];
   const base = join(root, config(root).screensDir);
   if (existsSync(base)) for (const m of readdirSync(base, { withFileTypes: true })) { if (!m.isDirectory() || m.name.startsWith('_')) continue; for (const s of readdirSync(join(base, m.name), { withFileTypes: true })) if (s.isDirectory() && !existsSync(join(base, m.name, s.name, 'rev.yaml'))) problems.push(`${m.name}/${s.name}: rev.yaml 없음 — new-screen.mjs로 만든 폴더만 화면이다`); }
+  const curAssets = assetsSha(root);   // 공용 자산 묶음 — 확정 화면의 assets_sha와 대조(RFC-261029 C)
   for (const sc of listScreens(root)) {
     const rev = readRev(sc.path); const tag = sc.id;
     if (rev.screen !== sc.id) problems.push(`${tag}: rev.yaml screen(${rev.screen})이 폴더와 다르다`);
@@ -31,6 +32,7 @@ export function validate(root) {
       const fix = rev.visual_status === 'confirmed' ? 'confirm.mjs --reopen "<사유>" → 고침 → confirm(rev+1)' : 'confirm.mjs --ready 다시(지문 재고정)';
       for (const f of confirmedFiles(sc.path)) { if (!rev.files[f]) problems.push(`${tag}: ${f}는 rev ${rev.rev} ${rev.visual_status} 뒤 추가됐다 — ${fix}`); else if (sha(readFileSync(join(sc.path, f))) !== rev.files[f]) problems.push(`${tag}: ${f}가 rev ${rev.rev} ${rev.visual_status === 'confirmed' ? '확정본' : 'ready 선언본'}과 다르다 — ${rev.visual_status === 'confirmed' ? '확정 후 수정은 ' + fix + '만' : fix}`); }
       for (const f of Object.keys(rev.files)) if (!confirmedFiles(sc.path).includes(f)) problems.push(`${tag}: ${rev.visual_status} 파일 ${f}가 사라졌다 — ${fix}`);
+      if (rev.assets_sha && rev.assets_sha !== curAssets) problems.push(`${tag}: 공용 자산(_assets)이 rev ${rev.rev} ${rev.visual_status} 뒤 바뀌었다 — 이 화면의 렌더가 달라진다. 화면마다 ${fix}(일괄 명령은 없다 — 확정은 화면마다 사람이)`);
     }
     for (const f of files) {
       const miss = unresolvedAssets(join(sc.path, f)); if (miss.length) problems.push(`${tag}: ${f} 자산 참조가 열리지 않는다(무스타일) — ${miss.join(', ')}`);
@@ -64,6 +66,11 @@ if (process.argv.includes('--self-test')) {
     const bad = create(tmp, 'm', 'badstatus', 'B'); writeFileSync(join(bad.path, 'rev.yaml'), rd(join(bad.path, 'rev.yaml')).replace('visual_status: draft', 'visual_status: done'));
     mkdirSync(join(tmp, 'qa', 'QA-000000-bad'), { recursive: true }); writeFileSync(join(tmp, 'qa', 'QA-000000-bad', 'report.md'), '---\nid: QA-000000-bad\nstate: closed\ntype: 오류\nbasis: x\nclosed: ""\ncaptures: []\n---\n# QA-000000-bad · t\n');
     const { problems, warnings } = validate(tmp);
+    // 공용 자산 변경(RFC-261029 C) — 토큰 한 줄 바뀌면 확정 화면 전부 위반. 따로 돌려 ok 화면이 위반으로 뜨는지만 본다(다른 검사엔 영향 없게 원복)
+    const tok = join(tmp, 'screens', '_assets', 'tokens.css'); const tok0 = rd(tok); writeFileSync(tok, tok0 + '\n:root{--x:1}\n');
+    const pa = validate(tmp).problems.filter((p) => /공용 자산\(_assets\)이 rev 1 confirmed 뒤 바뀌었다/.test(p));
+    if (!pa.some((p) => p.startsWith('m/ok:'))) fails.push('공용 자산 변경 미검출'); if (pa.some((p) => p.startsWith('m/draft:'))) fails.push('draft 화면에 자산 위반');
+    writeFileSync(tok, tok0); if (validate(tmp).problems.some((p) => /공용 자산/.test(p))) fails.push('자산 원복 뒤 오탐');
     const want = ['m/tampered: 01-default.html가 rev 1 확정본과 다르다', 'm/poltamper: policy.md가 rev 1 확정본과 다르다', 'm/csstamper: _screen.css가 rev 1 확정본과 다르다', 'm/readytamper: 01-default.html가 rev 0 ready 선언본과 다르다', 'm/draft: 02-x.html에 개발 저장소 표식(FDR-261017-x)', 'm/draft: 상태 파일 이름은 NN-slug.html — bad name.html', 'm/draft: 03-nocss.html 자산 참조가 열리지 않는다', 'm/norev: rev.yaml 없음', 'm/badstatus: visual_status(done)', 'QA-000000-bad: closed인데 확인 기록', 'QA-000000-bad: 오류 건이 resolution'];
     for (const w of want) if (!problems.some((p) => p.includes(w))) fails.push('미검출: ' + w);
     if (!warnings.some((w) => /m\/draft: 02-x\.html 상대 시각/.test(w))) fails.push('draft 비결정은 경고여야');
@@ -72,7 +79,7 @@ if (process.argv.includes('--self-test')) {
     if (problems.some((p) => /m\/draft: 02-x\.html 상대 시각/.test(p))) fails.push('draft 비결정이 위반으로');
   } catch (e) { fails.push('예외: ' + e.message); }
   rmSync(tmp, { recursive: true, force: true });
-  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (11종 검출 · 정책·CSS 변조 · ready 뒤 수정 · draft 경고 · 양성 대조 1 · CRLF 무경보)');
+  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (11종 검출 · 정책·CSS 변조 · ready 뒤 수정 · 공용 자산 변경 · draft 경고 · 양성 대조 1 · CRLF 무경보)');
   process.exit(fails.length ? 1 : 0);
 }
 if (process.argv[1] && /validate\.mjs$/.test(process.argv[1]) && !process.argv.includes('--self-test')) {
