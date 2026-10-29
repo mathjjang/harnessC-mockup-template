@@ -153,4 +153,10 @@ for s in scripts/*.mjs init.mjs; do node $s --self-test; done && node scripts/va
 
 ## 개정
 
-규칙이 바뀔 때마다 버전을 올리고 짝 템플릿(harnessC-template)과 같은 시점에 태그한다. 라이선스: 아직 부여하지 않았다 — 공개 저장소이지만 LICENSE 파일이 없다. 사용·재배포 전에 문의.
+규칙이 바뀔 때마다 버전을 올리고 짝 템플릿(harnessC-template)과 같은 시점에 태그한다.
+
+## 라이선스 · 만든 사람
+
+- 라이선스: [MIT](LICENSE) — Copyright (c) 2026 Ubion Co., Ltd. (주식회사 유비온)
+- 만든 사람: Bong Jin Jang <mathjjang@ubion.co.kr>
+- 이 템플릿으로 만든 프로젝트는 자기 라이선스를 고른다 — 프로젝트 생성 때 루트 `LICENSE`는 지워지고, 복사된 도구의 MIT 고지만 `scripts/LICENSE`에 남는다(지우지 않는다 — MIT의 유일한 조건).

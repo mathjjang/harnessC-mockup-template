@@ -15,6 +15,7 @@ export function run(root, name) {
   const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { if (SKIP.has(e.name)) continue; const p = join(d, e.name); if (e.isDirectory()) walk(p); else if (TEXT.test(e.name)) { const t = readFileSync(p, 'utf8'); const u = t.replace(/\{\{PROJECT_NAME\}\}/g, name); if (u !== t) { writeFileSync(p, u); changed.push(p); } } } };
   walk(root);
   const my = join(root, 'mockup.yaml'); writeFileSync(my, readFileSync(my, 'utf8').replace(/^project:.*$/m, `project: "${name}"`));
+  rmSync(join(root, 'LICENSE'), { force: true });   // 루트 LICENSE는 템플릿 저장소의 것 — 프로젝트는 자기 라이선스를 고른다. 복사된 도구의 MIT 고지는 scripts/LICENSE에 남는다
   return { changed: changed.length };
 }
 
@@ -27,10 +28,11 @@ if (process.argv.includes('--self-test')) {
     if (r.changed < 1) fails.push('치환 0건');
     if (!/^project: "proj-x"$/m.test(readFileSync(join(tmp, 'mockup.yaml'), 'utf8'))) fails.push('mockup.yaml 미갱신');
     if (/\{\{PROJECT_NAME\}\}/.test(readFileSync(join(tmp, 'AGENTS.md'), 'utf8'))) fails.push('AGENTS 치환 누락');
+    if (existsSync(join(tmp, 'LICENSE')) || !existsSync(join(tmp, 'scripts', 'LICENSE'))) fails.push('LICENSE: 루트는 지우고 scripts/LICENSE는 남겨야');
     try { run(tmp); fails.push('이름 없이 통과'); } catch { /* 기대 */ }
   } catch (e) { fails.push('예외: ' + e.message); }
   rmSync(tmp, { recursive: true, force: true });
-  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (치환 · mockup.yaml · 거부)');
+  console.log(fails.length ? 'self-test FAIL: ' + fails.join(' · ') : 'self-test OK (치환 · mockup.yaml · 루트 LICENSE 제거·도구 고지 유지 · 거부)');
   process.exit(fails.length ? 1 : 0);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url) && !process.argv.includes('--self-test')) {
